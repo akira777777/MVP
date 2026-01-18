@@ -71,6 +71,7 @@ This document summarizes the security, testing, admin, scaling, and deployment f
 ### 4. Horizontal Scaling with Redis
 
 #### Redis Integration
+
 - **File**: `scheduler/reminders.py`
 - **Features**:
   - APScheduler with Redis job store for clustering
