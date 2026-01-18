@@ -32,6 +32,86 @@ telegram-beauty-salon-bot/
 └── docker-compose.yml      # Docker Compose setup
 ```
 
+## 🤖 Parallel Agents & Automation
+
+### Composer Integration
+
+Use Cursor Composer (Ctrl+K) with parallel agents:
+
+**Quick Prompts (Vibe Mode):**
+```
+@agent1 Architect plan
+@agent2 Code handlers
+@tester Run Playwright
+```
+
+**Parallel Spawn:**
+```
+Spawn 5 agents: 2 coders (bot/db), 1 tester, 1 devops (docker), 1 reviewer.
+```
+
+**Iterative Fixes:**
+```
+Fix bug: overbooking → Apply → @web search GDPR Telegram
+```
+
+See [COMPOSER_PROMPTS.md](COMPOSER_PROMPTS.md) for detailed prompts.
+
+### TMUX Agents (20 Terminals)
+
+```bash
+# Setup 20 parallel agent terminals
+python tmux_agents_parallel.py setup
+
+# List active agents
+python tmux_agents_parallel.py list
+
+# Attach to session
+tmux attach -t agents
+```
+
+Each terminal runs a Cursor chat agent with specific task.
+
+### Auto Test & Deploy
+
+```bash
+# Run full pipeline: test → build → deploy
+python scripts/auto_test_deploy.py
+
+# Or use GitHub Actions (automatic on push)
+# See .github/workflows/auto_deploy.yml
+```
+
+**Pipeline Steps:**
+1. ✅ Linter (ruff)
+2. ✅ Tests (pytest + Playwright)
+3. ✅ Docker build
+4. ✅ Deploy (Docker/Vercel)
+5. ✅ Create PR (via MCP GitHub)
+6. ✅ Deploy to Vercel (via MCP)
+
+### MCP GitHub Integration
+
+Configure MCP GitHub server in `.kilocode/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+**Usage:**
+- Create PR: `MCP GitHub: Create pull request`
+- Deploy: `MCP GitHub: Trigger Vercel deployment`
+
 ## 🚀 Quick Start
 
 ### Prerequisites
