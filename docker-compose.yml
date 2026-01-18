@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: telegram-beauty-salon-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Prague
+    volumes:
+      - ./bot.log:/app/bot.log
+    networks:
+      - bot-network
+
+  # Optional: Add PostgreSQL if not using Supabase
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: beauty_salon
+  #     POSTGRES_USER: bot
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
+
+# volumes:
+#   postgres_data:

@@ -1,0 +1,87 @@
+name: Deploy Telegram Bot
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+      
+      - name: Run linter
+        run: |
+          pip install ruff
+          ruff check . --output-format=github
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v
+        env:
+          TEST_BOT_USERNAME: ${{ secrets.TEST_BOT_USERNAME }}
+          TEST_USER_ID: ${{ secrets.TEST_USER_ID }}
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Docker Hub (if needed)
+        # Uncomment if using Docker Hub
+        # uses: docker/login-action@v3
+        # with:
+        #   username: ${{ secrets.DOCKER_USERNAME }}
+        #   password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: telegram-beauty-salon-bot:latest
+          cache-from: type=registry,ref=telegram-beauty-salon-bot:latest
+          cache-to: type=inline
+      
+      - name: Deploy to Vercel (if using Vercel)
+        # Uncomment and configure if deploying to Vercel
+        # uses: amondnet/vercel-action@v25
+        # with:
+        #   vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        #   vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        #   vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        #   vercel-args: '--prod'
+        run: echo "Deploy step - configure your deployment target"
+      
+      - name: Deploy to server (SSH)
+        # Uncomment if deploying via SSH
+        # uses: appleboy/ssh-action@v1.0.0
+        # with:
+        #   host: ${{ secrets.SSH_HOST }}
+        #   username: ${{ secrets.SSH_USER }}
+        #   key: ${{ secrets.SSH_KEY }}
+        #   script: |
+        #     cd /path/to/bot
+        #     docker-compose pull
+        #     docker-compose up -d
+        run: echo "SSH deploy step - configure your server details"

@@ -1,0 +1,40 @@
+{
+  "session_name": "agents",
+  "windows": {
+    "telegram-bots": {
+      "description": "Telegram боты (aiogram)",
+      "command": "python -c \"print('Telegram bots ready. Replace with your bot script.'); import time; [time.sleep(1) for _ in range(3600)]\"",
+      "working_directory": ".",
+      "auto_restart": true
+    },
+    "scheduler": {
+      "description": "Планировщик задач (apscheduler)",
+      "command": "python -c \"print('Task scheduler ready. Replace with your scheduler script.'); import time; [time.sleep(1) for _ in range(3600)]\"",
+      "working_directory": ".",
+      "auto_restart": true
+    },
+    "monitoring": {
+      "description": "Мониторинг и HTTP сервисы (aiohttp)",
+      "command": "python -c \"print('HTTP monitoring ready. Replace with your aiohttp script.'); import time; [time.sleep(1) for _ in range(3600)]\"",
+      "working_directory": ".",
+      "auto_restart": true
+    },
+    "browser-automation": {
+      "description": "Автоматизация браузера (playwright)",
+      "command": "python -c \"print('Browser automation ready. Replace with your playwright script.'); import time; [time.sleep(1) for _ in range(3600)]\"",
+      "working_directory": ".",
+      "auto_restart": true
+    },
+    "mcp-servers": {
+      "description": "MCP серверы (context7, puppeteer, brave-search, memory)",
+      "command": "python -c \"print('MCP servers ready. Replace with your MCP server startup script.'); import time; [time.sleep(1) for _ in range(3600)]\"",
+      "working_directory": ".",
+      "auto_restart": true
+    }
+  },
+  "global_settings": {
+    "log_file": "agents_session.log",
+    "pid_file": "agents_session.pid",
+    "auto_save_config": true
+  }
+}
