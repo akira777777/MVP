@@ -5,7 +5,7 @@
 ### Single Agent Tasks
 ```
 @agent1 Architect plan
-@agent2 Code handlers  
+@agent2 Code handlers
 @tester Run Playwright
 ```
 

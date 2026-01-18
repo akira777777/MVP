@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 async def architect_plan():
     """
     Architect agent: Creates system architecture plans.
-    
+
     Responsibilities:
     - Database schema design
     - API structure
@@ -19,7 +19,7 @@ async def architect_plan():
     - Integration points
     """
     logger.info("🏗️ Architect: Analyzing requirements and creating architecture plan...")
-    
+
     plan = {
         "database": {
             "tables": ["clients", "slots", "bookings"],
@@ -40,7 +40,7 @@ async def architect_plan():
             "claude": "AI Q&A"
         }
     }
-    
+
     logger.info("✅ Architect: Plan created")
     return plan
 

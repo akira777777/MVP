@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def setup_docker():
     """
     DevOps agent: Sets up Docker configuration.
-    
+
     Tasks:
     - Dockerfile optimization
     - docker-compose.yml
@@ -21,7 +21,7 @@ def setup_docker():
     - Deployment scripts
     """
     logger.info("🚀 DevOps: Setting up Docker and deployment...")
-    
+
     tasks = [
         "✅ Dockerfile created",
         "✅ docker-compose.yml configured",
@@ -29,7 +29,7 @@ def setup_docker():
         "✅ Health check endpoints",
         "✅ Environment variable management"
     ]
-    
+
     logger.info("✅ DevOps: Docker setup complete")
     return tasks
 
@@ -37,7 +37,7 @@ def setup_docker():
 def deploy_to_vercel():
     """Deploy to Vercel via MCP GitHub."""
     logger.info("🚀 DevOps: Deploying to Vercel...")
-    
+
     # This would be called via MCP GitHub integration
     # For now, return deployment status
     return {"status": "ready", "message": "Use MCP GitHub to deploy"}

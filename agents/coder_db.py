@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def code_db_layer():
     """
     DB coder agent: Implements database operations.
-    
+
     Tasks:
     - Supabase client wrapper
     - CRUD operations
@@ -18,7 +18,7 @@ def code_db_layer():
     - Error handling
     """
     logger.info("👨‍💻 DB Coder: Implementing database layer...")
-    
+
     tasks = [
         "✅ Supabase client initialization",
         "✅ Client CRUD operations",
@@ -27,7 +27,7 @@ def code_db_layer():
         "✅ Reminder queries",
         "✅ Transaction handling"
     ]
-    
+
     logger.info("✅ DB Coder: Database layer complete")
     return tasks
 

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def run_playwright_tests():
     """
     Tester agent: Runs Playwright E2E tests.
-    
+
     Tests:
     - Booking flow
     - Payment flow
@@ -24,7 +24,7 @@ async def run_playwright_tests():
     - Edge cases
     """
     logger.info("🧪 Tester: Running Playwright E2E tests...")
-    
+
     try:
         # Run pytest with Playwright
         result = subprocess.run(
@@ -33,14 +33,14 @@ async def run_playwright_tests():
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode == 0:
             logger.info("✅ Tester: All tests passed")
             return {"status": "passed", "output": result.stdout}
         else:
             logger.error(f"❌ Tester: Tests failed\n{result.stderr}")
             return {"status": "failed", "output": result.stderr}
-            
+
     except Exception as e:
         logger.error(f"❌ Tester: Error running tests: {e}")
         return {"status": "error", "error": str(e)}

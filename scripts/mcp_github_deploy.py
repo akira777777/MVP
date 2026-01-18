@@ -16,18 +16,18 @@ async def create_pr_via_mcp(
 ) -> Optional[Dict]:
     """
     Create GitHub PR via MCP GitHub integration.
-    
+
     Args:
         title: PR title
         body: PR description
         base_branch: Base branch (usually main)
         head_branch: Head branch with changes
-        
+
     Returns:
         PR information or None if failed
     """
     logger.info(f"📝 Creating PR: {title}")
-    
+
     # This would use MCP GitHub tools
     # Example MCP call:
     # mcp_github.create_pull_request(
@@ -36,7 +36,7 @@ async def create_pr_via_mcp(
     #     base=base_branch,
     #     head=head_branch
     # )
-    
+
     logger.info("Use MCP GitHub server to create PR")
     return {
         "status": "pending",
@@ -47,15 +47,15 @@ async def create_pr_via_mcp(
 async def deploy_to_vercel_via_mcp() -> Dict:
     """
     Deploy to Vercel via MCP GitHub integration.
-    
+
     Returns:
         Deployment status
     """
     logger.info("🚀 Deploying to Vercel via MCP...")
-    
+
     # This would trigger Vercel deployment via GitHub Actions
     # or directly via Vercel API through MCP
-    
+
     logger.info("Use MCP GitHub to trigger Vercel deployment")
     return {
         "status": "pending",
@@ -71,16 +71,16 @@ async def auto_deploy_pipeline():
     3. Deploy to Vercel
     """
     logger.info("🚀 Starting auto-deploy pipeline...")
-    
+
     # Step 1: Create PR
     pr = await create_pr_via_mcp(
         title="Auto-deploy: Latest changes",
         body="Automated deployment from CI/CD pipeline"
     )
-    
+
     # Step 2: Deploy to Vercel
     deploy = await deploy_to_vercel_via_mcp()
-    
+
     return {
         "pr": pr,
         "deploy": deploy
@@ -89,6 +89,6 @@ async def auto_deploy_pipeline():
 
 if __name__ == "__main__":
     import asyncio
-    
+
     logging.basicConfig(level=logging.INFO)
     asyncio.run(auto_deploy_pipeline())
