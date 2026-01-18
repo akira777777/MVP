@@ -59,6 +59,21 @@ See [COMPOSER_PROMPTS.md](COMPOSER_PROMPTS.md) for detailed prompts.
 
 ### TMUX Agents (20 Terminals)
 
+**Windows-compatible version:**
+
+```bash
+# Setup 20 parallel agent processes
+py tmux_agents_parallel_windows.py setup
+
+# List active agents
+py tmux_agents_parallel_windows.py list
+
+# Stop all agents
+py tmux_agents_parallel_windows.py stop
+```
+
+**Linux/macOS (with tmux):**
+
 ```bash
 # Setup 20 parallel agent terminals
 python tmux_agents_parallel.py setup
@@ -70,7 +85,7 @@ python tmux_agents_parallel.py list
 tmux attach -t agents
 ```
 
-Each terminal runs a Cursor chat agent with specific task.
+Each agent runs a specific task and logs to `logs/agent_<name>.log`.
 
 ### Auto Test & Deploy
 

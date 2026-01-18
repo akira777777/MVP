@@ -5,7 +5,7 @@ Run this to create initial tables and seed data.
 
 import asyncio
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add parent directory to path
@@ -21,7 +21,7 @@ async def create_sample_slots():
     db = get_db_client()
 
     # Create slots for the next 7 days
-    base_date = datetime.utcnow().replace(hour=10, minute=0, second=0, microsecond=0)
+    base_date = datetime.now(timezone.utc).replace(hour=10, minute=0, second=0, microsecond=0)
     base_date = base_date + timedelta(days=1)  # Start from tomorrow
 
     slots_created = 0

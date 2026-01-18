@@ -2,15 +2,21 @@
 Stripe payment integration for booking payments.
 """
 
-import logging
 from typing import Optional
 
 import stripe
 from stripe import PaymentIntent
+from stripe.error import StripeError
 
 from config import settings
+from utils.logging_config import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging(
+    name=__name__,
+    log_level="INFO",
+    log_file="payments.log",
+    log_dir="logs"
+)
 
 # Initialize Stripe
 stripe.api_key = settings.stripe_secret_key
@@ -26,14 +32,28 @@ async def create_payment_intent(
     Create Stripe payment intent for a booking.
 
     Args:
-        amount_czk: Amount in CZK
-        booking_id: Booking ID
-        client_telegram_id: Telegram user ID
+        amount_czk: Amount in CZK (must be positive)
+        booking_id: Booking ID (UUID format)
+        client_telegram_id: Telegram user ID (positive integer)
         currency: Currency code (default: czk)
 
     Returns:
         Stripe PaymentIntent object
+
+    Raises:
+        ValueError: If input validation fails
+        RuntimeError: If Stripe API call fails
     """
+    # Input validation
+    if amount_czk <= 0:
+        raise ValueError(f"Invalid amount: {amount_czk} CZK must be positive")
+    
+    if not booking_id:
+        raise ValueError("Booking ID is required")
+    
+    if not client_telegram_id or client_telegram_id <= 0:
+        raise ValueError(f"Invalid Telegram user ID: {client_telegram_id}")
+
     try:
         # Convert CZK to smallest currency unit (CZK uses whole numbers)
         amount = amount_czk
@@ -56,9 +76,18 @@ async def create_payment_intent(
         )
         return payment_intent
 
-    except stripe.error.StripeError as e:
-        logger.error(f"Stripe error creating payment intent: {e}", exc_info=True)
+    except StripeError as e:
+        logger.error(
+            f"Stripe error creating payment intent for booking {booking_id}: {e}",
+            exc_info=True
+        )
         raise RuntimeError(f"Payment processing error: {e}") from e
+    except Exception as e:
+        logger.error(
+            f"Unexpected error creating payment intent: {e}",
+            exc_info=True
+        )
+        raise RuntimeError(f"Unexpected payment error: {e}") from e
 
 
 async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
@@ -70,11 +99,20 @@ async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
 
     Returns:
         PaymentIntent object or None if not found
+
+    Raises:
+        ValueError: If payment_intent_id is empty
     """
+    if not payment_intent_id:
+        raise ValueError("Payment intent ID is required")
+    
     try:
         return stripe.PaymentIntent.retrieve(payment_intent_id)
-    except stripe.error.StripeError as e:
-        logger.error(f"Stripe error retrieving payment intent: {e}", exc_info=True)
+    except StripeError as e:
+        logger.error(
+            f"Stripe error retrieving payment intent {payment_intent_id}: {e}",
+            exc_info=True
+        )
         return None
 
 

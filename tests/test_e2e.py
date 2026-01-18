@@ -5,7 +5,7 @@ Tests the complete booking flow: book → pay → reminder.
 
 import asyncio
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from playwright.async_api import async_playwright, Browser, Page
@@ -117,9 +117,12 @@ async def test_edge_cases():
 async def create_test_slot(db_client, service_type: str, days_ahead: int = 1):
     """Create a test slot for testing."""
     from models.slot import SlotCreate
-    from datetime import datetime, timedelta
+<<<<<<< Current (Your changes)
+=======
+    from datetime import datetime, timedelta, timezone
+>>>>>>> Incoming (Background Agent changes)
 
-    start_time = datetime.utcnow() + timedelta(days=days_ahead, hours=10)
+    start_time = datetime.now(timezone.utc) + timedelta(days=days_ahead, hours=10)
     end_time = start_time + timedelta(hours=1)
 
     slot_data = SlotCreate(

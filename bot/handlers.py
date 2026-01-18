@@ -4,7 +4,7 @@ Handles all user interactions: booking, payments, GDPR, AI Q&A.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from aiogram import Router
@@ -30,6 +30,7 @@ from models.slot import SlotStatus
 from payments import create_payment_intent, get_payment_intent
 from scheduler import send_reminder
 from utils.ai_qa import get_ai_response
+from utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,7 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
 
     db = get_db_client()
     # Get available slots starting from tomorrow
-    start_date = datetime.utcnow() + timedelta(days=1)
+    start_date = utc_now() + timedelta(days=1)
     slots = await db.get_available_slots(service_type.value, start_date)
 
     if not slots:
@@ -258,14 +259,21 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Client not found. Please use /start", show_alert=True)
         return
 
-    # Verify slot is still available
+    # Verify slot is still available (double-check before creating booking)
     slot = await db.get_slot_by_id(slot_id)
-    if not slot or slot.status != SlotStatus.AVAILABLE:
+    if not slot:
+        await callback.answer("Slot not found", show_alert=True)
+        await start_booking(callback, state)
+        return
+    
+    if slot.status != SlotStatus.AVAILABLE:
         await callback.answer("Slot no longer available", show_alert=True)
         await start_booking(callback, state)
         return
 
-    # Create booking
+    # Create booking and mark slot as booked atomically
+    # Note: Supabase doesn't support transactions in the Python client,
+    # so we handle this with careful ordering and error handling
     from models.booking import BookingCreate
 
     booking_data = BookingCreate(
@@ -277,10 +285,21 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
     )
 
     try:
+        # Create booking first
         booking = await db.create_booking(booking_data)
 
-        # Mark slot as booked
-        await db.update_slot_status(slot_id, SlotStatus.BOOKED)
+        # Mark slot as booked immediately after booking creation
+        updated_slot = await db.update_slot_status(slot_id, SlotStatus.BOOKED)
+        if not updated_slot:
+            # Slot update failed - rollback booking by cancelling it
+            logger.error(f"Failed to mark slot {slot_id} as booked after creating booking {booking.id}")
+            await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
+            await callback.answer(
+                "Failed to reserve slot. Please try again.",
+                show_alert=True
+            )
+            await start_booking(callback, state)
+            return
 
         # Create Stripe payment intent
         payment_intent = await create_payment_intent(
@@ -320,8 +339,20 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
 
     except Exception as e:
         logger.error(f"Failed to create booking: {e}", exc_info=True)
-        await callback.answer("Failed to create booking. Please try again.", show_alert=True)
+        
+        # Attempt cleanup: if booking was created but slot update failed,
+        # the booking should already be cancelled in the try block above
+        # Here we handle other exceptions
+        
+        await callback.answer(
+            "Failed to create booking. Please try again or contact support.",
+            show_alert=True
+        )
         await state.clear()
+        await callback.message.edit_text(
+            "👋 Welcome to Beauty Salon Bot!\n\n" "Choose an option:",
+            reply_markup=get_main_menu_keyboard(),
+        )
 
 
 @router.callback_query(lambda c: c.data.startswith("payment_done_"))
@@ -364,21 +395,50 @@ async def cancel_booking(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     booking_id = data.get("booking_id")
 
-    if booking_id:
+    if not booking_id:
+        await callback.answer("No booking to cancel", show_alert=True)
+        await state.clear()
+        return
+
+    try:
         db = get_db_client()
         booking = await db.get_booking_by_id(booking_id)
 
-        if booking:
-            # Free up the slot
-            await db.update_slot_status(booking.slot_id, SlotStatus.AVAILABLE)
-            await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
+        if not booking:
+            await callback.answer("Booking not found", show_alert=True)
+            await state.clear()
+            return
 
-    await callback.message.edit_text(
-        "❌ Booking cancelled.",
-        reply_markup=get_main_menu_keyboard(),
-    )
-    await state.clear()
-    await callback.answer()
+        # Only allow cancellation of pending or confirmed bookings
+        if booking.status not in [BookingStatus.PENDING, BookingStatus.CONFIRMED]:
+            await callback.answer(
+                f"Cannot cancel booking with status: {booking.status.value}",
+                show_alert=True
+            )
+            return
+
+        # Free up the slot
+        slot = await db.update_slot_status(booking.slot_id, SlotStatus.AVAILABLE)
+        if not slot:
+            logger.warning(f"Failed to free slot {booking.slot_id} for cancelled booking {booking_id}")
+
+        # Update booking status
+        await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
+
+        await callback.message.edit_text(
+            "❌ Booking cancelled.\n\n"
+            "The time slot has been freed and is available for booking again.",
+            reply_markup=get_main_menu_keyboard(),
+        )
+        await state.clear()
+        await callback.answer()
+
+    except Exception as e:
+        logger.error(f"Failed to cancel booking {booking_id}: {e}", exc_info=True)
+        await callback.answer(
+            "Failed to cancel booking. Please contact support.",
+            show_alert=True
+        )
 
 
 # ========== My Bookings ==========

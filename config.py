@@ -3,7 +3,6 @@ Configuration module for Telegram Beauty Salon Bot.
 Loads environment variables and provides typed configuration.
 """
 
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -28,7 +27,7 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str
     stripe_publishable_key: str
-    stripe_webhook_secret: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None  # Required in production for webhook verification
 
     # Claude AI
     claude_api_key: str
@@ -49,7 +48,12 @@ class Settings(BaseSettings):
     )
 
     def validate_all_required(self) -> None:
-        """Validate that all required settings are present."""
+        """
+        Validate that all required settings are present.
+
+        Raises:
+            ValueError: If required fields are missing or invalid
+        """
         required_fields = [
             "bot_token",
             "supabase_url",
@@ -62,15 +66,31 @@ class Settings(BaseSettings):
         missing = []
         for field in required_fields:
             value = getattr(self, field, None)
-            if not value or value.startswith("your_") or value.startswith("sk_test_") and "test" in field:
-                # Allow test keys but warn
-                if "test" not in str(value):
-                    missing.append(field)
+
+            # Check if value is missing or placeholder
+            if not value:
+                missing.append(field)
+                continue
+
+            # Check for placeholder values
+            value_str = str(value).lower()
+            if value_str.startswith("your_"):
+                missing.append(field)
+                continue
+
+            # Special handling for Stripe test keys
+            # Test keys (sk_test_*, pk_test_*) are valid for development
+            if "stripe" in field.lower() and (
+                value_str.startswith("sk_test_") or value_str.startswith("pk_test_")
+            ):
+                continue  # Test keys are acceptable
 
         if missing:
             raise ValueError(
-                f"Missing required configuration: {', '.join(missing)}. "
-                f"Please check your .env file."
+                f"Missing or invalid required configuration: "
+                f"{', '.join(missing)}. "
+                f"Please check your .env file and ensure all required "
+                f"values are set."
             )
 
 

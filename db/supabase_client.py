@@ -3,7 +3,6 @@ Supabase database client with CRUD operations.
 Handles all database interactions for clients, slots, and bookings.
 """
 
-from datetime import datetime
 from typing import List, Optional
 
 from supabase import create_client, Client as SupabaseClientType
@@ -12,6 +11,7 @@ from config import settings
 from models.booking import Booking, BookingCreate, BookingStatus
 from models.client import Client, ClientCreate
 from models.slot import Slot, SlotCreate, SlotStatus
+from utils.datetime_utils import parse_iso_datetime, to_iso_string, utc_now
 
 
 class SupabaseClient:
@@ -46,7 +46,7 @@ class SupabaseClient:
         try:
             data = client_data.model_dump(exclude_none=True)
             if client_data.gdpr_consent_date:
-                data["gdpr_consent_date"] = client_data.gdpr_consent_date.isoformat()
+                data["gdpr_consent_date"] = to_iso_string(client_data.gdpr_consent_date)
 
             response = self.client.table("clients").insert(data).execute()
 
@@ -62,10 +62,11 @@ class SupabaseClient:
     ) -> Client:
         """Update GDPR consent for a client."""
         try:
+            now = utc_now()
             update_data = {
                 "gdpr_consent": consent,
-                "gdpr_consent_date": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "gdpr_consent_date": to_iso_string(now),
+                "updated_at": to_iso_string(now),
             }
 
             response = (
@@ -88,15 +89,15 @@ class SupabaseClient:
         """Create a new time slot."""
         try:
             data = slot_data.model_dump(exclude_none=True)
-            data["start_time"] = slot_data.start_time.isoformat()
-            data["end_time"] = slot_data.end_time.isoformat()
+            data["start_time"] = to_iso_string(slot_data.start_time)
+            data["end_time"] = to_iso_string(slot_data.end_time)
 
             response = self.client.table("slots").insert(data).execute()
 
             if not response.data:
                 raise ValueError("Failed to create slot: no data returned")
 
-            return Slot(**response.data[0])
+            return self._parse_slot(response.data[0])
         except Exception as e:
             raise RuntimeError(f"Failed to create slot: {e}") from e
 
@@ -113,7 +114,7 @@ class SupabaseClient:
             )
 
             if start_date:
-                query = query.gte("start_time", start_date.isoformat())
+                query = query.gte("start_time", to_iso_string(start_date))
 
             query = query.order("start_time", desc=False)
 
@@ -121,14 +122,7 @@ class SupabaseClient:
 
             slots = []
             for item in response.data:
-                # Parse datetime strings
-                item["start_time"] = datetime.fromisoformat(
-                    item["start_time"].replace("Z", "+00:00")
-                )
-                item["end_time"] = datetime.fromisoformat(
-                    item["end_time"].replace("Z", "+00:00")
-                )
-                slots.append(Slot(**item))
+                slots.append(self._parse_slot(item))
 
             return slots
         except Exception as e:
@@ -142,14 +136,7 @@ class SupabaseClient:
             )
 
             if response.data:
-                item = response.data[0]
-                item["start_time"] = datetime.fromisoformat(
-                    item["start_time"].replace("Z", "+00:00")
-                )
-                item["end_time"] = datetime.fromisoformat(
-                    item["end_time"].replace("Z", "+00:00")
-                )
-                return Slot(**item)
+                return self._parse_slot(response.data[0])
             return None
         except Exception as e:
             raise RuntimeError(f"Failed to get slot: {e}") from e
@@ -161,7 +148,7 @@ class SupabaseClient:
         try:
             update_data = {
                 "status": status.value,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": to_iso_string(utc_now()),
             }
 
             response = (
@@ -174,14 +161,7 @@ class SupabaseClient:
             if not response.data:
                 return None
 
-            item = response.data[0]
-            item["start_time"] = datetime.fromisoformat(
-                item["start_time"].replace("Z", "+00:00")
-            )
-            item["end_time"] = datetime.fromisoformat(
-                item["end_time"].replace("Z", "+00:00")
-            )
-            return Slot(**item)
+            return self._parse_slot(response.data[0])
         except Exception as e:
             raise RuntimeError(f"Failed to update slot status: {e}") from e
 
@@ -212,14 +192,7 @@ class SupabaseClient:
             )
 
             if response.data:
-                booking = response.data[0]
-                # Parse datetime fields if present
-                for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                    if booking.get(field):
-                        booking[field] = datetime.fromisoformat(
-                            booking[field].replace("Z", "+00:00")
-                        )
-                return Booking(**booking)
+                return self._parse_booking(response.data[0])
             return None
         except Exception as e:
             raise RuntimeError(f"Failed to get booking: {e}") from e
@@ -237,13 +210,7 @@ class SupabaseClient:
 
             bookings = []
             for item in response.data:
-                # Parse datetime fields
-                for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                    if item.get(field):
-                        item[field] = datetime.fromisoformat(
-                            item[field].replace("Z", "+00:00")
-                        )
-                bookings.append(Booking(**item))
+                bookings.append(self._parse_booking(item))
 
             return bookings
         except Exception as e:
@@ -256,7 +223,7 @@ class SupabaseClient:
         try:
             update_data = {
                 "status": status.value,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": to_iso_string(utc_now()),
             }
 
             response = (
@@ -269,13 +236,7 @@ class SupabaseClient:
             if not response.data:
                 return None
 
-            booking = response.data[0]
-            for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                if booking.get(field):
-                    booking[field] = datetime.fromisoformat(
-                        booking[field].replace("Z", "+00:00")
-                    )
-            return Booking(**booking)
+            return self._parse_booking(response.data[0])
         except Exception as e:
             raise RuntimeError(f"Failed to update booking status: {e}") from e
 
@@ -291,7 +252,7 @@ class SupabaseClient:
                 "stripe_payment_intent_id": payment_intent_id,
                 "stripe_payment_status": payment_status,
                 "status": BookingStatus.PAID.value,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": to_iso_string(utc_now()),
             }
 
             response = (
@@ -304,23 +265,18 @@ class SupabaseClient:
             if not response.data:
                 return None
 
-            booking = response.data[0]
-            for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                if booking.get(field):
-                    booking[field] = datetime.fromisoformat(
-                        booking[field].replace("Z", "+00:00")
-                    )
-            return Booking(**booking)
+            return self._parse_booking(response.data[0])
         except Exception as e:
             raise RuntimeError(f"Failed to update booking payment: {e}") from e
 
     async def mark_reminder_sent(self, booking_id: str) -> Optional[Booking]:
         """Mark reminder as sent for a booking."""
         try:
+            now = utc_now()
             update_data = {
                 "reminder_sent": True,
-                "reminder_sent_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "reminder_sent_at": to_iso_string(now),
+                "updated_at": to_iso_string(now),
             }
 
             response = (
@@ -333,13 +289,7 @@ class SupabaseClient:
             if not response.data:
                 return None
 
-            booking = response.data[0]
-            for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                if booking.get(field):
-                    booking[field] = datetime.fromisoformat(
-                        booking[field].replace("Z", "+00:00")
-                    )
-            return Booking(**booking)
+            return self._parse_booking(response.data[0])
         except Exception as e:
             raise RuntimeError(f"Failed to mark reminder sent: {e}") from e
 
@@ -350,8 +300,8 @@ class SupabaseClient:
         try:
             from datetime import timedelta
 
-            target_time = datetime.utcnow() + timedelta(hours=hours_before)
-            now = datetime.utcnow()
+            now = utc_now()
+            target_time = now + timedelta(hours=hours_before)
 
             # Get bookings that are confirmed or paid and don't have reminder sent
             response = (
@@ -371,17 +321,50 @@ class SupabaseClient:
 
                 # Check if slot is within reminder window
                 if now <= slot.start_time <= target_time:
-                    # Parse datetime fields
-                    for field in ["reminder_sent_at", "created_at", "updated_at"]:
-                        if item.get(field):
-                            item[field] = datetime.fromisoformat(
-                                item[field].replace("Z", "+00:00")
-                            )
-                    bookings.append(Booking(**item))
+                    bookings.append(self._parse_booking(item))
 
             return bookings
         except Exception as e:
             raise RuntimeError(f"Failed to get bookings for reminder: {e}") from e
+
+    # ========== Helper Methods ==========
+
+    def _parse_slot(self, item: dict) -> Slot:
+        """
+        Parse slot data from database response.
+        
+        Args:
+            item: Raw slot data from database
+            
+        Returns:
+            Parsed Slot object
+        """
+        item = item.copy()
+        if item.get("start_time"):
+            item["start_time"] = parse_iso_datetime(item["start_time"])
+        if item.get("end_time"):
+            item["end_time"] = parse_iso_datetime(item["end_time"])
+        if item.get("created_at"):
+            item["created_at"] = parse_iso_datetime(item["created_at"])
+        if item.get("updated_at"):
+            item["updated_at"] = parse_iso_datetime(item["updated_at"])
+        return Slot(**item)
+
+    def _parse_booking(self, item: dict) -> Booking:
+        """
+        Parse booking data from database response.
+        
+        Args:
+            item: Raw booking data from database
+            
+        Returns:
+            Parsed Booking object
+        """
+        item = item.copy()
+        for field in ["reminder_sent_at", "created_at", "updated_at"]:
+            if item.get(field):
+                item[field] = parse_iso_datetime(item[field])
+        return Booking(**item)
 
 
 # Global database client instance

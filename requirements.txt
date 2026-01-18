@@ -1,32 +1,47 @@
+# Core Application Dependencies
+# ================================
+
 # Telegram Bot Framework
 aiogram==3.13.1
 
-# Database
+# Database & ORM
 supabase==2.12.0
-postgrest==0.19.0
+# Note: postgrest is a transitive dependency of supabase, no need to specify explicitly
 
-# Payments
+# Payment Processing
 stripe==11.1.0
 
-# Scheduling
+# Task Scheduling
 apscheduler==3.10.4
 
 # AI Integration
 anthropic==0.39.0
 
-# Testing
-playwright==1.48.0
-pytest==8.3.3
-pytest-asyncio==0.24.0
+# HTTP Clients
+httpx==0.27.2
+aiohttp==3.10.11
 
-# Environment & Config
+# Configuration & Validation
 python-dotenv==1.0.1
 pydantic==2.9.2
 pydantic-settings==2.5.2
 
-# HTTP Client
-httpx==0.27.2
-aiohttp==3.10.11
-
 # Utilities
 python-dateutil==2.9.0.post0
+
+# Process Management
+# Used for system monitoring and process management in agents
+psutil==6.1.0
+
+# Development & Testing Dependencies
+# ===================================
+
+# Testing Framework
+pytest==8.3.3
+pytest-asyncio==0.24.0
+
+# E2E Testing
+playwright==1.48.0
+
+# Code Quality (optional, for local development and CI/CD)
+# ruff==0.6.9  # Fast Python linter (used in CI/CD workflows)

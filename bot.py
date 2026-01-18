@@ -3,9 +3,7 @@ Main entry point for Telegram Beauty Salon Booking Bot.
 """
 
 import asyncio
-import logging
 import sys
-from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -15,18 +13,15 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot import register_handlers
 from config import settings
 from scheduler import setup_scheduler
+from utils.logging_config import setup_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("bot.log"),
-        logging.StreamHandler(sys.stdout),
-    ],
+# Configure logging using centralized configuration
+logger = setup_logging(
+    name=__name__,
+    log_level="INFO",
+    log_file="bot.log",
+    log_dir="logs"
 )
-
-logger = logging.getLogger(__name__)
 
 # Validate configuration
 try:
@@ -41,24 +36,20 @@ bot = Bot(
     default=DefaultBotProperties(parse_mode=ParseMode.HTML),
 )
 
-# Store bot instance for scheduler
-from scheduler import reminders
-
-reminders.bot_instance = bot
-
 dp = Dispatcher(storage=MemoryStorage())
 
 
-async def main():
+async def main() -> None:
     """Main async function to run the bot."""
     try:
         logger.info("Starting Telegram Beauty Salon Bot...")
 
         # Register handlers
         register_handlers(dp)
+        logger.info("Handlers registered")
 
-        # Setup scheduler for reminders
-        setup_scheduler()
+        # Setup scheduler for reminders with bot instance
+        setup_scheduler(bot=bot)
         logger.info("Scheduler started")
 
         # Start polling
@@ -67,14 +58,28 @@ async def main():
 
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
+    except asyncio.CancelledError:
+        logger.info("Bot cancelled")
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
+        raise  # Re-raise to ensure proper exit code
     finally:
-        # Cleanup
-        from scheduler import shutdown_scheduler
+        # Cleanup resources
+        logger.info("Shutting down...")
+        try:
+            from scheduler import shutdown_scheduler
 
-        shutdown_scheduler()
-        await bot.session.close()
+            shutdown_scheduler()
+            logger.info("Scheduler stopped")
+        except Exception as e:
+            logger.error(f"Error shutting down scheduler: {e}", exc_info=True)
+
+        try:
+            await bot.session.close()
+            logger.info("Bot session closed")
+        except Exception as e:
+            logger.error(f"Error closing bot session: {e}", exc_info=True)
+
         logger.info("Bot shutdown complete")
 
 

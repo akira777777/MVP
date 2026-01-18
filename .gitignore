@@ -56,3 +56,27 @@ Thumbs.db
 # Project specific
 agents_session.log
 agents_session.pid
+
+<<<<<<< Current (Your changes)
+<<<<<<< Current (Your changes)
+# Agent task queues and results (temporary files)
+<<<<<<< Current (Your changes)
+tasks/queue_*.json
+tasks/result_*.json
+tasks/stats_*.json
+=======
+tasks/
+tasks/*.json
+>>>>>>> Incoming (Background Agent changes)
+=======
+# Agent task files (runtime artifacts)
+tasks/result_*.json
+tasks/stats_*.json
+tasks/queue_*.json
+>>>>>>> Incoming (Background Agent changes)
+=======
+# Agent task queues and results (temporary files)
+tasks/queue_*.json
+tasks/result_*.json
+tasks/stats_*.json
+>>>>>>> Incoming (Background Agent changes)

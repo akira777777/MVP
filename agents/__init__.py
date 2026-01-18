@@ -1,18 +1,22 @@
 """Parallel agents for development workflow."""
 
-from .architect import architect_plan
-from .coder_bot import code_bot_handlers
-from .coder_db import code_db_layer
-from .tester import run_playwright_tests
-from .devops import setup_docker, deploy_to_vercel
-from .reviewer import review_code
+# Import agent classes for direct use
+from agents.architect import ArchitectAgent
+from agents.coder_bot import CoderBotAgent
+from agents.coder_db import CoderDBAgent
+from agents.tester import TesterAgent
+from agents.devops import DevOpsAgent
+from agents.reviewer import ReviewerAgent
+from agents.add import AddFeaturesAgent
+from agents.base_agent import BaseAgent
 
 __all__ = [
-    "architect_plan",
-    "code_bot_handlers",
-    "code_db_layer",
-    "run_playwright_tests",
-    "setup_docker",
-    "deploy_to_vercel",
-    "review_code",
+    "ArchitectAgent",
+    "CoderBotAgent",
+    "CoderDBAgent",
+    "TesterAgent",
+    "DevOpsAgent",
+    "ReviewerAgent",
+    "AddFeaturesAgent",
+    "BaseAgent",
 ]

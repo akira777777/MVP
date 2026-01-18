@@ -1,5 +1,5 @@
 """
-Agent 5: DevOps - Manages Docker and deployment.
+Agent: Deploy - Handles deployment tasks.
 Runs continuously and processes deployment tasks.
 """
 
@@ -15,58 +15,44 @@ from agents.base_agent import BaseAgent
 logger = logging.getLogger(__name__)
 
 
-class DevOpsAgent(BaseAgent):
-    """DevOps agent for deployment."""
+class DeployAgent(BaseAgent):
+    """Deploy agent for handling deployments."""
 
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Process deployment task."""
         task_type = task.get("type", "deploy")
         task_data = task.get("data", {})
 
-        logger.info(f"DevOps: Processing {task_type} task")
+        logger.info(f"Deploy: Processing {task_type} task")
 
-        if task_type == "docker":
-            return {
-                "status": "completed",
-                "action": "docker_build",
-                "result": "Docker image built successfully",
-            }
-
-        elif task_type == "deploy":
-            environment = task_data.get("environment", "staging")
+        if task_type == "deploy":
+            environment = task_data.get("environment", "production")
             return {
                 "status": "completed",
                 "environment": environment,
                 "result": f"Deployed to {environment}",
             }
 
-        elif task_type == "ci_cd":
-            return {
-                "status": "completed",
-                "pipeline": "GitHub Actions",
-                "result": "CI/CD pipeline configured",
-            }
-
         return {"status": "completed", "result": "Task processed"}
 
 
 async def main():
-    """Main function to run DevOps agent."""
+    """Main function to run deploy agent."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler("logs/agent_devops.log"),
+            logging.FileHandler("logs/agent_deploy.log", encoding="utf-8"),
             logging.StreamHandler(),
         ],
     )
 
-    agent = DevOpsAgent("devops")
+    agent = DeployAgent("deploy")
 
     try:
         await agent.run()
     except KeyboardInterrupt:
-        logger.info("DevOps agent stopping...")
+        logger.info("Deploy agent stopping...")
         agent.stop()
 
 
