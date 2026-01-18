@@ -3,35 +3,32 @@ Utility functions for lead generation module.
 """
 
 import re
-from typing import List, Set, Dict
+from typing import Dict, List, Optional, Set, Tuple, Union
+
 from .models import BusinessData
 
 # Районы Праги
 PRAGUE_DISTRICTS = [
-    "Prague 1", "Prague 2", "Prague 3", "Prague 4", "Prague 5",
-    "Prague 6", "Prague 7", "Prague 8", "Prague 9", "Prague 10"
+    "Prague 1",
+    "Prague 2",
+    "Prague 3",
+    "Prague 4",
+    "Prague 5",
+    "Prague 6",
+    "Prague 7",
+    "Prague 8",
+    "Prague 9",
+    "Prague 10",
 ]
 
 # Категории бизнесов
 BUSINESS_CATEGORIES = {
-    "cafe_restaurant": [
-        "kavárna", "restaurace", "bistro", "café", "kavárna Praha"
-    ],
-    "beauty_salon": [
-        "kadeřnictví", "kosmetika", "manikúra", "pedikúra", "salon krásy"
-    ],
-    "retail": [
-        "obchod", "obchůdek", "prodejna", "butik"
-    ],
-    "services": [
-        "úklid", "opravy", "servis", "instalatér", "elektrikář"
-    ],
-    "medical": [
-        "lékař", "zubní lékař", "fyzioterapeut", "masáž"
-    ],
-    "fitness": [
-        "fitness", "posilovna", "yoga", "pilates", "sportovní centrum"
-    ]
+    "cafe_restaurant": ["kavárna", "restaurace", "bistro", "café", "kavárna Praha"],
+    "beauty_salon": ["kadeřnictví", "kosmetika", "manikúra", "pedikúra", "salon krásy"],
+    "retail": ["obchod", "obchůdek", "prodejna", "butik"],
+    "services": ["úklid", "opravy", "servis", "instalatér", "elektrikář"],
+    "medical": ["lékař", "zubní lékař", "fyzioterapeut", "masáž"],
+    "fitness": ["fitness", "posilovna", "yoga", "pilates", "sportovní centrum"],
 }
 
 
@@ -127,13 +124,15 @@ def generate_prague_queries() -> List[Dict]:
     for category, search_terms in BUSINESS_CATEGORIES.items():
         for term in search_terms:
             for district in PRAGUE_DISTRICTS:
-                queries.append({
-                    "query": f"{term} {district}",
-                    "location": prague_center,  # Можно уточнить координаты районов
-                    "category": category,
-                    "radius": 5000,
-                    "district": district
-                })
+                queries.append(
+                    {
+                        "query": f"{term} {district}",
+                        "location": prague_center,  # Можно уточнить координаты районов
+                        "category": category,
+                        "radius": 5000,
+                        "district": district,
+                    }
+                )
 
     return queries
 
@@ -155,6 +154,7 @@ def format_business_for_csv(business: BusinessData) -> dict:
         "district": business.district or "",
         "postal_code": business.postal_code or "",
         "phone": business.phone or "",
+        "email": business.email or "",
         "website": business.website or "",
         "category": business.category or "",
         "subcategory": business.subcategory or "",
@@ -165,3 +165,66 @@ def format_business_for_csv(business: BusinessData) -> dict:
         "latitude": float(business.latitude) if business.latitude else "",
         "longitude": float(business.longitude) if business.longitude else "",
     }
+
+
+def extract_email_from_text(text: str) -> Optional[str]:
+    """
+    Extract email address from text using regex.
+
+    Args:
+        text: Text to search for email
+
+    Returns:
+        Email address or None
+    """
+    if not text:
+        return None
+
+    email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+    matches = re.findall(email_pattern, text)
+
+    if matches:
+        # Filter out common non-business emails
+        filtered = [
+            e
+            for e in matches
+            if not any(
+                domain in e.lower()
+                for domain in ["example.com", "test.com", "placeholder", "noreply"]
+            )
+        ]
+        if filtered:
+            return filtered[0].lower().strip()
+
+    return None
+
+
+def normalize_location(
+    location: Union[Dict[str, float], Tuple[float, float], str, None],
+    default_lat: float = 50.0755,
+    default_lng: float = 14.4378,
+) -> Optional[Dict[str, float]]:
+    """
+    Normalize location to dict format with latitude and longitude.
+
+    Args:
+        location: Location as dict, tuple, string, or None
+        default_lat: Default latitude if location is None or invalid
+        default_lng: Default longitude if location is None or invalid
+
+    Returns:
+        Dictionary with 'latitude' and 'longitude' keys, or None
+    """
+    if location is None:
+        return {"latitude": default_lat, "longitude": default_lng}
+
+    if isinstance(location, dict):
+        lat = location.get("latitude", default_lat)
+        lng = location.get("longitude", default_lng)
+        return {"latitude": lat, "longitude": lng}
+
+    if isinstance(location, tuple) and len(location) >= 2:
+        return {"latitude": float(location[0]), "longitude": float(location[1])}
+
+    # If string, return None (caller should handle string locations separately)
+    return None

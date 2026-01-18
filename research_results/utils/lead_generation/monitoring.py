@@ -2,15 +2,16 @@
 Мониторинг и метрики сбора данных.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
-from collections import defaultdict
+from typing import Dict, Optional
 
 
 @dataclass
 class CollectionMetrics:
     """Метрики сбора данных."""
+
     total_queries: int = 0
     successful_queries: int = 0
     failed_queries: int = 0
@@ -18,8 +19,12 @@ class CollectionMetrics:
     total_businesses_saved: int = 0
     duplicates_skipped: int = 0
     errors_by_type: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    businesses_by_category: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    businesses_by_district: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    businesses_by_category: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+    businesses_by_district: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
     start_time: datetime = field(default_factory=datetime.now)
     end_time: Optional[datetime] = None
 
@@ -38,19 +43,19 @@ class CollectionMetrics:
     def to_dict(self) -> Dict:
         """Экспорт метрик в словарь."""
         return {
-            'total_queries': self.total_queries,
-            'successful_queries': self.successful_queries,
-            'failed_queries': self.failed_queries,
-            'success_rate': f"{self.success_rate:.2f}%",
-            'total_businesses_found': self.total_businesses_found,
-            'total_businesses_saved': self.total_businesses_saved,
-            'duplicates_skipped': self.duplicates_skipped,
-            'duration_seconds': self.duration,
-            'businesses_by_category': dict(self.businesses_by_category),
-            'businesses_by_district': dict(self.businesses_by_district),
-            'errors': dict(self.errors_by_type),
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
+            "total_queries": self.total_queries,
+            "successful_queries": self.successful_queries,
+            "failed_queries": self.failed_queries,
+            "success_rate": f"{self.success_rate:.2f}%",
+            "total_businesses_found": self.total_businesses_found,
+            "total_businesses_saved": self.total_businesses_saved,
+            "duplicates_skipped": self.duplicates_skipped,
+            "duration_seconds": self.duration,
+            "businesses_by_category": dict(self.businesses_by_category),
+            "businesses_by_district": dict(self.businesses_by_district),
+            "errors": dict(self.errors_by_type),
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
         }
 
     def record_success(self, businesses_found: int = 0, businesses_saved: int = 0):

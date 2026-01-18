@@ -3,19 +3,41 @@ Browser-based Google Maps scraper using Playwright.
 """
 
 import asyncio
+import logging
 import random
 import re
-import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus
 
-from playwright.async_api import async_playwright, Browser, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Browser, Page, async_playwright
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from .models import BusinessData
+try:
+    from playwright_stealth import stealth_async
+
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("playwright-stealth not available, running without stealth mode")
+
 from .config import ScraperConfig
+from .models import BusinessData
 from .utils import normalize_prague_address
 
-logger = logging.getLogger(__name__)
+if not STEALTH_AVAILABLE:
+    logger = logging.getLogger(__name__)
+else:
+    logger = logging.getLogger(__name__)
+
+# Try to import phone-email-extractor
+try:
+    from phone_email_extractor import extract_emails, extract_phones
+
+    CONTACT_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    CONTACT_EXTRACTOR_AVAILABLE = False
+    logger.warning("phone-email-extractor not available, contact extraction disabled")
 
 
 class GoogleMapsScraper:
@@ -54,6 +76,15 @@ class GoogleMapsScraper:
         )
         self.page = await self.browser.new_page()
         await self.page.set_extra_http_headers({"User-Agent": self.config.user_agent})
+
+        # Apply stealth mode if available
+        if STEALTH_AVAILABLE and getattr(self.config, "use_stealth", True):
+            try:
+                await stealth_async(self.page)
+                logger.debug("Stealth mode enabled")
+            except Exception as e:
+                logger.warning(f"Failed to enable stealth mode: {e}")
+
         logger.info("Browser started successfully")
 
     async def close(self):
@@ -178,7 +209,9 @@ class GoogleMapsScraper:
                 try:
                     elements = await self.page.query_selector_all(selector)
                     if elements:
-                        logger.debug(f"Found {len(elements)} elements with selector: {selector}")
+                        logger.debug(
+                            f"Found {len(elements)} elements with selector: {selector}"
+                        )
                         break
                 except Exception:
                     continue
@@ -271,9 +304,9 @@ class GoogleMapsScraper:
                 if f"Praha {i}" in address or f"Prague {i}" in address:
                     district = f"Prague {i}"
                     break
-            
+
             from decimal import Decimal
-            
+
             # Create business data
             business = BusinessData(
                 name=name,
@@ -290,12 +323,21 @@ class GoogleMapsScraper:
                 details = await self._get_business_details(place_url)
                 if details:
                     business.phone = details.get("phone")
+                    business.email = details.get("email")
                     business.website = details.get("website")
                     place_id = details.get("place_id")
                     business.place_id = place_id  # Keep for backward compatibility
                     business.google_place_id = place_id
-                    business.latitude = Decimal(str(details.get("latitude"))) if details.get("latitude") else None
-                    business.longitude = Decimal(str(details.get("longitude"))) if details.get("longitude") else None
+                    business.latitude = (
+                        Decimal(str(details.get("latitude")))
+                        if details.get("latitude")
+                        else None
+                    )
+                    business.longitude = (
+                        Decimal(str(details.get("longitude")))
+                        if details.get("longitude")
+                        else None
+                    )
 
             return business
 
@@ -333,7 +375,9 @@ class GoogleMapsScraper:
             await self._rate_limit()
 
             # Open details in new tab or navigate
-            await self.page.goto(place_url, timeout=self.config.page_load_timeout * 1000)
+            await self.page.goto(
+                place_url, timeout=self.config.page_load_timeout * 1000
+            )
             await self.page.wait_for_load_state("networkidle")
             await asyncio.sleep(2)
 
@@ -354,11 +398,24 @@ class GoogleMapsScraper:
                         break
 
             # Extract website
-            website_element = await self.page.query_selector('a[data-item-id="authority"]')
+            website_element = await self.page.query_selector(
+                'a[data-item-id="authority"]'
+            )
             if website_element:
                 website = await website_element.get_attribute("href")
                 if website:
                     details["website"] = website
+
+                    # Try to extract email and phone from website if enabled
+                    if CONTACT_EXTRACTOR_AVAILABLE and getattr(
+                        self.config, "extract_contacts_from_website", False
+                    ):
+                        try:
+                            await self._extract_contacts_from_website(website, details)
+                        except Exception as e:
+                            logger.debug(
+                                f"Failed to extract contacts from website {website}: {e}"
+                            )
 
             # Extract place_id from URL
             if "/place/" in place_url:
@@ -372,3 +429,65 @@ class GoogleMapsScraper:
         except Exception as e:
             logger.debug(f"Error getting business details: {e}")
             return None
+
+    async def _extract_contacts_from_website(
+        self, website: str, details: Dict[str, Any]
+    ):
+        """
+        Extract email and phone from business website.
+
+        Args:
+            website: Website URL
+            details: Dictionary to update with extracted contacts
+        """
+        if not CONTACT_EXTRACTOR_AVAILABLE:
+            return
+
+        try:
+            await self._rate_limit()
+
+            # Navigate to website
+            await self.page.goto(website, timeout=self.config.page_load_timeout * 1000)
+            await self.page.wait_for_load_state("networkidle")
+            await asyncio.sleep(1)  # Wait for dynamic content
+
+            # Get page content
+            html_content = await self.page.content()
+
+            # Extract emails and phones
+            emails = extract_emails(html_content)
+            phones = extract_phones(html_content)
+
+            # Update details if found
+            if emails and not details.get("email"):
+                # Filter out common non-business emails
+                filtered_emails = [
+                    e
+                    for e in emails
+                    if not any(
+                        domain in e.lower()
+                        for domain in ["example.com", "test.com", "placeholder"]
+                    )
+                ]
+                if filtered_emails:
+                    details["email"] = filtered_emails[0]  # Take first valid email
+
+            if phones and not details.get("phone"):
+                # Filter Czech phone numbers
+                czech_phones = [
+                    p
+                    for p in phones
+                    if "+420" in p.replace(" ", "")
+                    or len(
+                        p.replace(" ", "")
+                        .replace("-", "")
+                        .replace("(", "")
+                        .replace(")", "")
+                    )
+                    == 9
+                ]
+                if czech_phones:
+                    details["phone"] = czech_phones[0]  # Take first Czech phone
+
+        except Exception as e:
+            logger.debug(f"Error extracting contacts from website {website}: {e}")

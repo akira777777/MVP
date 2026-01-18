@@ -87,7 +87,7 @@ class MCPGoogleMapsClient:
         # Пример вызова (зависит от конкретной реализации MCP)
         # results = await mcp_client.call("google-maps/search_places", {...})
         # return self._parse_mcp_response(results)
-        
+
         # For now, fallback to API client if available
         if self._api_client:
             self.logger.info(f"Using direct API client for query: {query}")
@@ -156,13 +156,18 @@ class MCPGoogleMapsClient:
         Returns:
             List of BusinessData objects
         """
-        return await self.search_places(query, location, self.config.default_radius_meters)
+        return await self.search_places(
+            query, location, self.config.default_radius_meters
+        )
 
     def _convert_place_to_business(
         self, place_data: Dict[str, Any]
     ) -> Optional[BusinessData]:
         """
         Convert MCP place data to BusinessData model.
+
+        Note: This method is reserved for future MCP implementation.
+        Currently, search_places uses API client directly.
 
         Args:
             place_data: Place data from MCP API
@@ -171,19 +176,41 @@ class MCPGoogleMapsClient:
             BusinessData object or None if conversion fails
         """
         try:
+            from decimal import Decimal
+
+            geometry = place_data.get("geometry", {})
+            location = geometry.get("location", {})
+            types_list = place_data.get("types", [])
+
+            # Extract district from address if possible
+            address = place_data.get("formatted_address", "")
+            district = None
+            for i in range(1, 11):
+                if f"Praha {i}" in address or f"Prague {i}" in address:
+                    district = f"Prague {i}"
+                    break
+
             return BusinessData(
                 name=place_data.get("name", ""),
-                address=place_data.get("formatted_address", ""),
+                address=address,
+                city="Prague",
+                district=district,
                 phone=place_data.get("formatted_phone_number"),
                 website=place_data.get("website"),
-                category=", ".join(
-                    [cat.get("name", "") for cat in place_data.get("types", [])]
-                ),
-                rating=place_data.get("rating"),
+                category=", ".join(types_list[:3]) if types_list else "unknown",
+                subcategory=", ".join(types_list[3:]) if len(types_list) > 3 else None,
+                google_place_id=place_data.get("place_id"),
+                place_id=place_data.get("place_id"),  # Keep for backward compatibility
+                rating=Decimal(str(place_data.get("rating")))
+                if place_data.get("rating")
+                else None,
                 review_count=place_data.get("user_ratings_total"),
-                place_id=place_data.get("place_id"),
-                latitude=place_data.get("geometry", {}).get("location", {}).get("lat"),
-                longitude=place_data.get("geometry", {}).get("location", {}).get("lng"),
+                latitude=Decimal(str(location.get("lat")))
+                if location.get("lat")
+                else None,
+                longitude=Decimal(str(location.get("lng")))
+                if location.get("lng")
+                else None,
             )
         except Exception as e:
             logger.error(f"Error converting place data: {e}")

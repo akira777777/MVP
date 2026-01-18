@@ -36,6 +36,16 @@ class Settings(BaseSettings):
 
     # Google Maps API (for lead generation)
     google_maps_api_key: Optional[str] = None
+    google_maps_rate_limit_per_minute: int = 60
+
+    # Lead Generation Settings
+    lead_generation_enabled: bool = False
+    lead_generation_batch_size: int = 50
+    lead_generation_delay_seconds: float = 2.0
+    lead_generation_max_retries: int = 3
+    lead_generation_use_api: bool = True  # Приоритет API
+    lead_generation_use_mcp: bool = True  # Fallback на MCP
+    lead_generation_use_scraper: bool = False  # Последний fallback
 
     # Bot Settings
     timezone: str = "Europe/Prague"

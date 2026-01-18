@@ -58,7 +58,9 @@ class GoogleMapsAPIClient:
         """Ожидание для соблюдения rate limit."""
         now = datetime.now()
         # Удаляем старые записи
-        while self.request_times and (now - self.request_times[0]).total_seconds() >= 60:
+        while (
+            self.request_times and (now - self.request_times[0]).total_seconds() >= 60
+        ):
             self.request_times.popleft()
 
         if len(self.request_times) >= self.rate_limit:
@@ -365,11 +367,11 @@ class GoogleMapsAPIClient:
         """
         try:
             from decimal import Decimal
-            
+
             geometry = place_data.get("geometry", {})
             location = geometry.get("location", {})
             types_list = place_data.get("types", [])
-            
+
             # Extract district from address if possible
             address = place_data.get("formatted_address", "")
             district = None
@@ -377,7 +379,7 @@ class GoogleMapsAPIClient:
                 if f"Praha {i}" in address or f"Prague {i}" in address:
                     district = f"Prague {i}"
                     break
-            
+
             return BusinessData(
                 name=place_data.get("name", ""),
                 address=address,
@@ -389,10 +391,16 @@ class GoogleMapsAPIClient:
                 subcategory=", ".join(types_list[3:]) if len(types_list) > 3 else None,
                 google_place_id=place_data.get("place_id"),
                 place_id=place_data.get("place_id"),  # Keep for backward compatibility
-                rating=Decimal(str(place_data.get("rating"))) if place_data.get("rating") else None,
+                rating=Decimal(str(place_data.get("rating")))
+                if place_data.get("rating")
+                else None,
                 review_count=place_data.get("user_ratings_total"),
-                latitude=Decimal(str(location.get("lat"))) if location.get("lat") else None,
-                longitude=Decimal(str(location.get("lng"))) if location.get("lng") else None,
+                latitude=Decimal(str(location.get("lat")))
+                if location.get("lat")
+                else None,
+                longitude=Decimal(str(location.get("lng")))
+                if location.get("lng")
+                else None,
             )
         except Exception as e:
             logger.error(f"Error converting place data: {e}")
