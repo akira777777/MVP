@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
+    environment: str = "development"  # development, staging, production
+    # Set via ENVIRONMENT env var, defaults to development
 
     model_config = SettingsConfigDict(
         env_file=".env",
