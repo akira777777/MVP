@@ -31,12 +31,17 @@ logger = setup_logging(
     name=__name__, log_level="INFO", log_file="webhook.log", log_dir="logs"
 )
 
+# Constants
+MAX_REQUEST_BODY_SIZE = 1024 * 1024  # 1MB max request body size
+_MAX_EVENT_HISTORY = 1000  # Keep last 1000 events for metrics
+_EVENT_ID_CLEANUP_INTERVAL = 3600  # 1 hour in seconds
+_EVENT_ID_MAX_AGE = 86400  # 24 hours - max age for event ID cache
+_MAX_EVENT_CACHE_SIZE = 10000  # Maximum event IDs to track
+
 # Thread-safe event tracking with automatic cleanup
 # Using deque with maxlen to prevent unbounded growth
-_MAX_EVENT_HISTORY = 1000
 _processed_events: deque = deque(maxlen=_MAX_EVENT_HISTORY)
 _processed_event_ids: Dict[str, float] = {}  # event_id -> timestamp
-_EVENT_ID_CLEANUP_INTERVAL = 3600  # 1 hour in seconds
 _last_cleanup_time = time.time()
 
 # Health metrics
@@ -201,13 +206,23 @@ def _mark_event_processed(event_id: str, event_type: str) -> None:
 
 @web.middleware
 async def security_headers_middleware(request: Request, handler):
-    """Add security headers to all responses."""
+    """
+    Add security headers to all responses.
+    
+    Implements security best practices:
+    - Prevents MIME type sniffing
+    - Prevents clickjacking
+    - Enables XSS protection
+    - Enforces HTTPS in production
+    - Sets appropriate HTTP methods
+    """
     response = await handler(request)
 
     # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     # Only allow POST for webhook endpoint
     if request.path.startswith("/webhook/"):
