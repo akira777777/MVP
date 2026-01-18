@@ -34,7 +34,7 @@ USING (true);
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from supabase import Client as SupabaseClientType
 from supabase import create_client
@@ -69,12 +69,12 @@ class SupabaseClient:
         
         # Simple cache for frequently accessed data
         # Format: {cache_key: (data, expiry_time)}
-        self._cache: Dict[str, Tuple[any, datetime]] = {}
+        self._cache: Dict[str, Tuple[Any, datetime]] = {}
         self._cache_ttl = timedelta(minutes=5)  # Cache TTL: 5 minutes
 
     # ========== Cache Helpers ==========
     
-    def _get_from_cache(self, key: str) -> Optional[any]:
+    def _get_from_cache(self, key: str) -> Optional[Any]:
         """Get value from cache if not expired."""
         if key not in self._cache:
             return None
@@ -86,7 +86,7 @@ class SupabaseClient:
         
         return data
     
-    def _set_cache(self, key: str, value: any) -> None:
+    def _set_cache(self, key: str, value: Any) -> None:
         """Set value in cache with TTL."""
         expiry = utc_now() + self._cache_ttl
         self._cache[key] = (value, expiry)
