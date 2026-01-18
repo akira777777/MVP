@@ -15,6 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 # Redis jobstore is optional - only import if Redis is configured
 try:
     from apscheduler.jobstores.redis import RedisJobStore
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -29,26 +30,27 @@ logger = setup_logging(
     name=__name__, log_level="INFO", log_file="scheduler.log", log_dir="logs"
 )
 
+
 # Initialize scheduler with Redis backend if available, otherwise use default
 def _create_scheduler() -> AsyncIOScheduler:
     """
     Create scheduler with Redis backend for clustering support.
-    
+
     Falls back to default in-memory scheduler if Redis is not configured.
     """
     redis_url = getattr(settings, "redis_url", None)
-    
+
     if redis_url and REDIS_AVAILABLE and RedisJobStore:
         try:
             # Parse Redis URL: redis://host:port/db or redis://:password@host:port/db
             from urllib.parse import urlparse
-            
+
             parsed = urlparse(redis_url)
             host = parsed.hostname or "localhost"
             port = parsed.port or 6379
             db = int(parsed.path.lstrip("/")) if parsed.path else 0
             password = parsed.password if parsed.password else None
-            
+
             jobstores = {
                 "default": RedisJobStore(
                     host=host,
@@ -60,13 +62,18 @@ def _create_scheduler() -> AsyncIOScheduler:
             logger.info(f"Scheduler using Redis backend: {host}:{port}/{db}")
             return AsyncIOScheduler(jobstores=jobstores)
         except Exception as e:
-            logger.warning(f"Failed to initialize Redis scheduler: {e}. Falling back to in-memory scheduler.")
+            logger.warning(
+                f"Failed to initialize Redis scheduler: {e}. Falling back to in-memory scheduler."
+            )
             return AsyncIOScheduler()
     else:
         if redis_url and not REDIS_AVAILABLE:
-            logger.warning("Redis URL configured but RedisJobStore not available. Install redis package.")
+            logger.warning(
+                "Redis URL configured but RedisJobStore not available. Install redis package."
+            )
         logger.info("Scheduler using in-memory backend (single instance mode)")
         return AsyncIOScheduler()
+
 
 scheduler = _create_scheduler()
 

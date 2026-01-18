@@ -25,7 +25,7 @@ _API_TIMEOUT = 30.0  # seconds
 async def get_ai_response(question: str, context: Optional[str] = None) -> str:
     """
     Get AI response to user question.
-    
+
     Includes retry logic and timeout handling for reliability.
 
     Args:
@@ -59,11 +59,9 @@ async def get_ai_response(question: str, context: Optional[str] = None) -> str:
                     model="claude-sonnet-4-20250514",
                     max_tokens=500,
                     system=system_prompt,
-                    messages=[
-                        {"role": "user", "content": question}
-                    ],
+                    messages=[{"role": "user", "content": question}],
                 ),
-                timeout=_API_TIMEOUT
+                timeout=_API_TIMEOUT,
             )
 
             # Extract text from response
@@ -94,7 +92,7 @@ async def get_ai_response(question: str, context: Optional[str] = None) -> str:
                     "I'm having trouble processing your question. "
                     "Please try rephrasing it or contact support."
                 )
-            
+
             if attempt < _MAX_RETRIES - 1:
                 logger.warning(
                     f"Claude API error (attempt {attempt + 1}/{_MAX_RETRIES}): {e}. Retrying in {delay}s..."
@@ -102,7 +100,10 @@ async def get_ai_response(question: str, context: Optional[str] = None) -> str:
                 await asyncio.sleep(delay)
                 delay *= _RETRY_BACKOFF
             else:
-                logger.error(f"Claude API error after {_MAX_RETRIES} attempts: {e}", exc_info=True)
+                logger.error(
+                    f"Claude API error after {_MAX_RETRIES} attempts: {e}",
+                    exc_info=True,
+                )
                 return (
                     "I'm having trouble connecting to the AI service. "
                     "Please try again later or contact support."
@@ -115,12 +116,15 @@ async def get_ai_response(question: str, context: Optional[str] = None) -> str:
                 await asyncio.sleep(delay)
                 delay *= _RETRY_BACKOFF
             else:
-                logger.error(f"Unexpected Claude API error after {_MAX_RETRIES} attempts: {e}", exc_info=True)
+                logger.error(
+                    f"Unexpected Claude API error after {_MAX_RETRIES} attempts: {e}",
+                    exc_info=True,
+                )
                 return (
                     "I'm having trouble connecting to the AI service. "
                     "Please try again later or contact support."
                 )
-    
+
     # Fallback response
     return (
         "I'm having trouble connecting to the AI service. "

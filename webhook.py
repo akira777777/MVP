@@ -31,30 +31,29 @@ def _cleanup_rate_limit_store():
     """Clean up old entries from rate limit store to prevent memory leaks."""
     global _LAST_CLEANUP_TIME
     current_time = time.time()
-    
+
     # Only cleanup periodically to avoid overhead
     if current_time - _LAST_CLEANUP_TIME < _CLEANUP_INTERVAL:
         return
-    
+
     _LAST_CLEANUP_TIME = current_time
     expired_ips = []
-    
+
     for ip, timestamps in _rate_limit_store.items():
         # Remove expired timestamps
         valid_timestamps = [
-            ts for ts in timestamps
-            if current_time - ts < _RATE_LIMIT_WINDOW
+            ts for ts in timestamps if current_time - ts < _RATE_LIMIT_WINDOW
         ]
-        
+
         if valid_timestamps:
             _rate_limit_store[ip] = valid_timestamps
         else:
             # Remove IPs with no valid timestamps
             expired_ips.append(ip)
-    
+
     for ip in expired_ips:
         del _rate_limit_store[ip]
-    
+
     if expired_ips:
         logger.debug(f"Cleaned up {len(expired_ips)} expired IPs from rate limit store")
 
@@ -63,21 +62,21 @@ def _cleanup_rate_limit_store():
 async def rate_limit_middleware(request: Request, handler) -> Response:
     """
     Rate limiting middleware to prevent abuse.
-    
+
     Limits requests per IP address to prevent DDoS and abuse.
     Automatically cleans up old entries to prevent memory leaks.
     """
     # Periodic cleanup to prevent memory leaks
     _cleanup_rate_limit_store()
-    
+
     # Get client IP (consider X-Forwarded-For for proxied requests)
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
     if not client_ip:
         client_ip = request.remote or "unknown"
-    
+
     current_time = time.time()
-    
+
     # Clean old entries for this IP outside the window
     if client_ip in _rate_limit_store:
         _rate_limit_store[client_ip] = [
@@ -87,19 +86,18 @@ async def rate_limit_middleware(request: Request, handler) -> Response:
         ]
     else:
         _rate_limit_store[client_ip] = []
-    
+
     # Check rate limit
     request_count = len(_rate_limit_store[client_ip])
     if request_count >= _RATE_LIMIT_MAX_REQUESTS:
         logger.warning(f"Rate limit exceeded for IP: {client_ip}")
         return web.json_response(
-            {"status": "error", "message": "Rate limit exceeded"},
-            status=429
+            {"status": "error", "message": "Rate limit exceeded"}, status=429
         )
-    
+
     # Record this request
     _rate_limit_store[client_ip].append(current_time)
-    
+
     return await handler(request)
 
 
@@ -135,30 +133,30 @@ async def security_headers_middleware(request: Request, handler) -> Response:
 def verify_stripe_signature(payload_body: bytes, signature_header: str) -> dict:
     """
     Verify Stripe webhook signature.
-    
+
     Args:
         payload_body: Raw request body as bytes
         signature_header: Stripe-Signature header value
-        
+
     Returns:
         Parsed event data
-        
+
     Raises:
         ValueError: If signature verification fails
     """
     if not settings.stripe_webhook_secret:
-        logger.warning("Stripe webhook secret not configured - skipping signature verification")
+        logger.warning(
+            "Stripe webhook secret not configured - skipping signature verification"
+        )
         # In development, allow requests without verification
         if settings.environment.lower() == "production":
             raise ValueError("Stripe webhook secret required in production")
         # Return empty dict to allow processing in dev
         return {}
-    
+
     try:
         event = stripe.Webhook.construct_event(
-            payload_body,
-            signature_header,
-            settings.stripe_webhook_secret
+            payload_body, signature_header, settings.stripe_webhook_secret
         )
         logger.debug(f"Stripe signature verified for event: {event.get('type')}")
         return event
@@ -182,17 +180,16 @@ async def stripe_webhook_handler(request: Request) -> Response:
     try:
         # Get raw body for signature verification
         payload_body = await request.read()
-        
+
         # Get signature header
         signature_header = request.headers.get("Stripe-Signature")
-        
+
         if not signature_header and settings.environment.lower() == "production":
             logger.warning("Missing Stripe-Signature header in production")
             return web.json_response(
-                {"status": "error", "message": "Missing signature"},
-                status=400
+                {"status": "error", "message": "Missing signature"}, status=400
             )
-        
+
         # Verify signature
         try:
             if signature_header:
@@ -200,14 +197,14 @@ async def stripe_webhook_handler(request: Request) -> Response:
             else:
                 # Development mode: parse JSON directly
                 import json
-                event = json.loads(payload_body.decode('utf-8'))
+
+                event = json.loads(payload_body.decode("utf-8"))
         except ValueError as e:
             logger.error(f"Signature verification failed: {e}")
             return web.json_response(
-                {"status": "error", "message": "Invalid signature"},
-                status=401
+                {"status": "error", "message": "Invalid signature"}, status=401
             )
-        
+
         event_type = event.get("type")
         logger.info(f"Received verified Stripe webhook: {event_type}")
 
@@ -219,15 +216,11 @@ async def stripe_webhook_handler(request: Request) -> Response:
     except ValueError as e:
         # Signature/validation errors
         logger.error(f"Webhook validation error: {e}", exc_info=True)
-        return web.json_response(
-            {"status": "error", "message": str(e)},
-            status=400
-        )
+        return web.json_response({"status": "error", "message": str(e)}, status=400)
     except Exception as e:
         logger.error(f"Webhook error: {e}", exc_info=True)
         return web.json_response(
-            {"status": "error", "message": "Internal server error"},
-            status=500
+            {"status": "error", "message": "Internal server error"}, status=500
         )
 
 

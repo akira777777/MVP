@@ -63,8 +63,7 @@ async def cmd_start(message: Message, state: FSMContext):
         return
 
     await message.answer(
-        "👋 Welcome to Beauty Salon Bot!\n\n"
-        "Choose an option:",
+        "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
         reply_markup=get_main_menu_keyboard(),
     )
 
@@ -74,7 +73,7 @@ async def show_main_menu(callback: CallbackQuery, state: FSMContext):
     """Show main menu."""
     await state.clear()
     await callback.message.edit_text(
-        "👋 Welcome to Beauty Salon Bot!\n\n" "Choose an option:",
+        "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
         reply_markup=get_main_menu_keyboard(),
     )
     await callback.answer()
@@ -99,13 +98,17 @@ async def show_gdpr_consent(message: Message, state: FSMContext):
     )
 
     if isinstance(message, CallbackQuery):
-        await message.message.edit_text(gdpr_text, reply_markup=get_gdpr_consent_keyboard())
+        await message.message.edit_text(
+            gdpr_text, reply_markup=get_gdpr_consent_keyboard()
+        )
         await message.answer()
     else:
         await message.answer(gdpr_text, reply_markup=get_gdpr_consent_keyboard())
 
 
-@router.callback_query(lambda c: c.data == "gdpr_agree", StateFilter(GDPRStates.waiting_for_consent))
+@router.callback_query(
+    lambda c: c.data == "gdpr_agree", StateFilter(GDPRStates.waiting_for_consent)
+)
 async def handle_gdpr_agree(callback: CallbackQuery, state: FSMContext):
     """Handle GDPR agreement."""
     db = get_db_client()
@@ -138,7 +141,7 @@ async def start_booking(callback: CallbackQuery, state: FSMContext):
     await state.set_state(BookingStates.selecting_service)
 
     await callback.message.edit_text(
-        "📅 Book Appointment\n\n" "Select a service:",
+        "📅 Book Appointment\n\nSelect a service:",
         reply_markup=get_services_keyboard(),
     )
     await callback.answer()
@@ -155,7 +158,9 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
         return
 
     service = get_service(service_type)
-    await state.update_data(service_type=service_type.value, price_czk=service.price_czk)
+    await state.update_data(
+        service_type=service_type.value, price_czk=service.price_czk
+    )
 
     await state.set_state(BookingStates.selecting_slot)
 
@@ -174,10 +179,7 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
         return
 
     slots_text = "\n".join(
-        [
-            f"• {slot.start_time.strftime('%d.%m.%Y %H:%M')}"
-            for slot in slots[:5]
-        ]
+        [f"• {slot.start_time.strftime('%d.%m.%Y %H:%M')}" for slot in slots[:5]]
     )
 
     await callback.message.edit_text(
@@ -244,7 +246,7 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Missing booking information", show_alert=True)
         await state.clear()
         await callback.message.edit_text(
-            "👋 Welcome to Beauty Salon Bot!\n\n" "Choose an option:",
+            "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
             reply_markup=get_main_menu_keyboard(),
         )
         return
@@ -263,7 +265,7 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Slot not found", show_alert=True)
         await start_booking(callback, state)
         return
-    
+
     if slot.status != SlotStatus.AVAILABLE:
         await callback.answer("Slot no longer available", show_alert=True)
         await start_booking(callback, state)
@@ -285,26 +287,21 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         try:
             # Create booking first
             booking = await db.create_booking(booking_data)
-            
+
             if not booking or not booking.id:
                 raise ValueError("Failed to create booking: no ID returned")
 
             # Mark slot as booked immediately after booking creation
-            updated_slot = await db.update_slot_status(
-                slot_id, SlotStatus.BOOKED
-            )
+            updated_slot = await db.update_slot_status(slot_id, SlotStatus.BOOKED)
             if not updated_slot:
                 # Slot update failed - rollback booking by cancelling it
                 logger.error(
                     f"Failed to mark slot {slot_id} as booked "
                     f"after creating booking {booking.id}"
                 )
-                await db.update_booking_status(
-                    booking.id, BookingStatus.CANCELLED
-                )
+                await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
                 await callback.answer(
-                    "Failed to reserve slot. Please try again.",
-                    show_alert=True
+                    "Failed to reserve slot. Please try again.", show_alert=True
                 )
                 await start_booking(callback, state)
                 return
@@ -347,13 +344,12 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
             # Here we handle other exceptions
 
             await callback.answer(
-                "Failed to create booking. "
-                "Please try again or contact support.",
-                show_alert=True
+                "Failed to create booking. Please try again or contact support.",
+                show_alert=True,
             )
             await state.clear()
             await callback.message.edit_text(
-                "👋 Welcome to Beauty Salon Bot!\n\n" "Choose an option:",
+                "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
                 reply_markup=get_main_menu_keyboard(),
             )
 
@@ -372,9 +368,7 @@ async def handle_payment_done(callback: CallbackQuery, state: FSMContext):
 
     # Check payment status via Stripe
     if booking.stripe_payment_intent_id and booking.id:
-        payment_intent = await get_payment_intent(
-            booking.stripe_payment_intent_id
-        )
+        payment_intent = await get_payment_intent(booking.stripe_payment_intent_id)
         if payment_intent and payment_intent.status == "succeeded":
             await db.update_booking_status(booking.id, BookingStatus.PAID)
             await callback.message.edit_text(
@@ -419,14 +413,16 @@ async def cancel_booking(callback: CallbackQuery, state: FSMContext):
         if booking.status not in [BookingStatus.PENDING, BookingStatus.CONFIRMED]:
             await callback.answer(
                 f"Cannot cancel booking with status: {booking.status.value}",
-                show_alert=True
+                show_alert=True,
             )
             return
 
         # Free up the slot
         slot = await db.update_slot_status(booking.slot_id, SlotStatus.AVAILABLE)
         if not slot:
-            logger.warning(f"Failed to free slot {booking.slot_id} for cancelled booking {booking_id}")
+            logger.warning(
+                f"Failed to free slot {booking.slot_id} for cancelled booking {booking_id}"
+            )
 
         # Update booking status
         await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
@@ -442,8 +438,7 @@ async def cancel_booking(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"Failed to cancel booking {booking_id}: {e}", exc_info=True)
         await callback.answer(
-            "Failed to cancel booking. Please contact support.",
-            show_alert=True
+            "Failed to cancel booking. Please contact support.", show_alert=True
         )
 
 
@@ -468,7 +463,7 @@ async def show_my_bookings(callback: CallbackQuery):
 
     if not bookings:
         await callback.message.edit_text(
-            "📋 You have no bookings yet.\n\n" "Book your first appointment!",
+            "📋 You have no bookings yet.\n\nBook your first appointment!",
             reply_markup=get_back_to_menu_keyboard(),
         )
         await callback.answer()
@@ -527,7 +522,7 @@ async def handle_ai_question(message: Message, state: FSMContext):
     try:
         response = await get_ai_response(question)
         await message.answer(
-            f"💬 {response}\n\n" "Ask another question or return to menu:",
+            f"💬 {response}\n\nAsk another question or return to menu:",
             reply_markup=get_back_to_menu_keyboard(),
         )
     except Exception as e:

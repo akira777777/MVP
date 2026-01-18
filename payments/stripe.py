@@ -13,10 +13,7 @@ from config import settings
 from utils.logging_config import setup_logging
 
 logger = setup_logging(
-    name=__name__,
-    log_level="INFO",
-    log_file="payments.log",
-    log_dir="logs"
+    name=__name__, log_level="INFO", log_file="payments.log", log_dir="logs"
 )
 
 # Initialize Stripe
@@ -36,7 +33,7 @@ async def create_payment_intent(
 ) -> PaymentIntent:
     """
     Create Stripe payment intent for a booking.
-    
+
     Uses async executor to avoid blocking the event loop.
     Includes retry logic for transient failures.
 
@@ -56,20 +53,20 @@ async def create_payment_intent(
     # Input validation
     if amount_czk <= 0:
         raise ValueError(f"Invalid amount: {amount_czk} CZK must be positive")
-    
+
     if not booking_id:
         raise ValueError("Booking ID is required")
-    
+
     if not client_telegram_id or client_telegram_id <= 0:
         raise ValueError(f"Invalid Telegram user ID: {client_telegram_id}")
 
     # Convert CZK to smallest currency unit (CZK uses whole numbers)
     amount = amount_czk
-    
+
     # Retry logic for transient failures
     last_error = None
     delay = _RETRY_DELAY
-    
+
     for attempt in range(_MAX_RETRIES):
         try:
             # Run synchronous Stripe call in executor to avoid blocking
@@ -98,10 +95,10 @@ async def create_payment_intent(
             if e.http_status and 400 <= e.http_status < 500:
                 logger.error(
                     f"Stripe client error creating payment intent for booking {booking_id}: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 raise RuntimeError(f"Payment processing error: {e}") from e
-            
+
             if attempt < _MAX_RETRIES - 1:
                 logger.warning(
                     f"Stripe error (attempt {attempt + 1}/{_MAX_RETRIES}) for booking {booking_id}: {e}. Retrying in {delay}s..."
@@ -111,9 +108,11 @@ async def create_payment_intent(
             else:
                 logger.error(
                     f"Stripe error creating payment intent for booking {booking_id} after {_MAX_RETRIES} attempts: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
-                raise RuntimeError(f"Payment processing error after {_MAX_RETRIES} attempts: {e}") from e
+                raise RuntimeError(
+                    f"Payment processing error after {_MAX_RETRIES} attempts: {e}"
+                ) from e
         except Exception as e:
             last_error = e
             if attempt < _MAX_RETRIES - 1:
@@ -125,10 +124,12 @@ async def create_payment_intent(
             else:
                 logger.error(
                     f"Unexpected error creating payment intent after {_MAX_RETRIES} attempts: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
-                raise RuntimeError(f"Unexpected payment error after {_MAX_RETRIES} attempts: {e}") from e
-    
+                raise RuntimeError(
+                    f"Unexpected payment error after {_MAX_RETRIES} attempts: {e}"
+                ) from e
+
     # Should never reach here, but satisfy type checker
     raise RuntimeError(f"Failed to create payment intent: {last_error}") from last_error
 
@@ -136,7 +137,7 @@ async def create_payment_intent(
 async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
     """
     Get payment intent by ID.
-    
+
     Uses async executor to avoid blocking the event loop.
     Includes retry logic for transient failures.
 
@@ -151,15 +152,14 @@ async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
     """
     if not payment_intent_id:
         raise ValueError("Payment intent ID is required")
-    
+
     delay = _RETRY_DELAY
-    
+
     for attempt in range(_MAX_RETRIES):
         try:
             # Run synchronous Stripe call in executor to avoid blocking
             return await asyncio.to_thread(
-                stripe.PaymentIntent.retrieve,
-                payment_intent_id
+                stripe.PaymentIntent.retrieve, payment_intent_id
             )
         except StripeError as e:
             # Don't retry on 404 (not found) or client errors
@@ -168,7 +168,7 @@ async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
                     f"Payment intent {payment_intent_id} not found or client error: {e}"
                 )
                 return None
-            
+
             if attempt < _MAX_RETRIES - 1:
                 logger.warning(
                     f"Stripe error (attempt {attempt + 1}/{_MAX_RETRIES}) retrieving payment intent {payment_intent_id}: {e}. Retrying in {delay}s..."
@@ -178,7 +178,7 @@ async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
             else:
                 logger.error(
                     f"Stripe error retrieving payment intent {payment_intent_id} after {_MAX_RETRIES} attempts: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 return None
         except Exception as e:
@@ -191,10 +191,10 @@ async def get_payment_intent(payment_intent_id: str) -> Optional[PaymentIntent]:
             else:
                 logger.error(
                     f"Unexpected error retrieving payment intent {payment_intent_id} after {_MAX_RETRIES} attempts: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 return None
-    
+
     return None
 
 
