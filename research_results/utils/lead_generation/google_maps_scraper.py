@@ -265,12 +265,23 @@ class GoogleMapsScraper:
             if link_element:
                 place_url = await link_element.get_attribute("href")
 
+            # Extract district from address
+            district = None
+            for i in range(1, 11):
+                if f"Praha {i}" in address or f"Prague {i}" in address:
+                    district = f"Prague {i}"
+                    break
+            
+            from decimal import Decimal
+            
             # Create business data
             business = BusinessData(
                 name=name,
                 address=address or "Unknown",
+                city="Prague",
+                district=district,
                 category=category,
-                rating=rating,
+                rating=Decimal(str(rating)) if rating else None,
                 review_count=review_count,
             )
 
@@ -280,9 +291,11 @@ class GoogleMapsScraper:
                 if details:
                     business.phone = details.get("phone")
                     business.website = details.get("website")
-                    business.place_id = details.get("place_id")
-                    business.latitude = details.get("latitude")
-                    business.longitude = details.get("longitude")
+                    place_id = details.get("place_id")
+                    business.place_id = place_id  # Keep for backward compatibility
+                    business.google_place_id = place_id
+                    business.latitude = Decimal(str(details.get("latitude"))) if details.get("latitude") else None
+                    business.longitude = Decimal(str(details.get("longitude"))) if details.get("longitude") else None
 
             return business
 

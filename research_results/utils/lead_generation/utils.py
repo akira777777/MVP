@@ -3,8 +3,36 @@ Utility functions for lead generation module.
 """
 
 import re
-from typing import List, Set
+from typing import List, Set, Dict
 from .models import BusinessData
+
+# Районы Праги
+PRAGUE_DISTRICTS = [
+    "Prague 1", "Prague 2", "Prague 3", "Prague 4", "Prague 5",
+    "Prague 6", "Prague 7", "Prague 8", "Prague 9", "Prague 10"
+]
+
+# Категории бизнесов
+BUSINESS_CATEGORIES = {
+    "cafe_restaurant": [
+        "kavárna", "restaurace", "bistro", "café", "kavárna Praha"
+    ],
+    "beauty_salon": [
+        "kadeřnictví", "kosmetika", "manikúra", "pedikúra", "salon krásy"
+    ],
+    "retail": [
+        "obchod", "obchůdek", "prodejna", "butik"
+    ],
+    "services": [
+        "úklid", "opravy", "servis", "instalatér", "elektrikář"
+    ],
+    "medical": [
+        "lékař", "zubní lékař", "fyzioterapeut", "masáž"
+    ],
+    "fitness": [
+        "fitness", "posilovna", "yoga", "pilates", "sportovní centrum"
+    ]
+}
 
 
 def normalize_prague_address(address: str) -> str:
@@ -89,6 +117,27 @@ def deduplicate_businesses(businesses: List[BusinessData]) -> List[BusinessData]
     return unique
 
 
+def generate_prague_queries() -> List[Dict]:
+    """Генерация запросов для всех категорий и районов."""
+    queries = []
+
+    # Центр Праги (координаты)
+    prague_center = (50.0755, 14.4378)
+
+    for category, search_terms in BUSINESS_CATEGORIES.items():
+        for term in search_terms:
+            for district in PRAGUE_DISTRICTS:
+                queries.append({
+                    "query": f"{term} {district}",
+                    "location": prague_center,  # Можно уточнить координаты районов
+                    "category": category,
+                    "radius": 5000,
+                    "district": district
+                })
+
+    return queries
+
+
 def format_business_for_csv(business: BusinessData) -> dict:
     """
     Format business data for CSV export.
@@ -102,12 +151,17 @@ def format_business_for_csv(business: BusinessData) -> dict:
     return {
         "name": business.name,
         "address": business.address,
+        "city": business.city or "",
+        "district": business.district or "",
+        "postal_code": business.postal_code or "",
         "phone": business.phone or "",
         "website": business.website or "",
         "category": business.category or "",
-        "rating": business.rating or "",
+        "subcategory": business.subcategory or "",
+        "rating": float(business.rating) if business.rating else "",
         "review_count": business.review_count or "",
         "place_id": business.place_id or "",
-        "latitude": business.latitude or "",
-        "longitude": business.longitude or "",
+        "google_place_id": business.google_place_id or "",
+        "latitude": float(business.latitude) if business.latitude else "",
+        "longitude": float(business.longitude) if business.longitude else "",
     }
