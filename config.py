@@ -38,11 +38,26 @@ class Settings(BaseSettings):
     timezone: str = "Europe/Prague"
     reminder_hours_before: int = 24
 
+    # Admin Settings
+    admin_telegram_ids: str = (
+        ""  # Comma-separated Telegram user IDs (e.g., "123456,789012")
+    )
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
     environment: str = "development"  # development, staging, production
     # Set via ENVIRONMENT env var, defaults to development
+
+    # Webhook Configuration
+    bot_webhook_url: Optional[str] = (
+        None  # Full webhook URL for bot (e.g., https://yourdomain.com/webhook/telegram)
+    )
+
+    # Redis Configuration (for APScheduler cluster support)
+    redis_url: Optional[str] = (
+        None  # Redis connection URL (e.g., redis://localhost:6379/0)
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -50,6 +65,23 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    def is_admin(self, telegram_id: int) -> bool:
+        """
+        Check if a Telegram user ID is an admin.
+
+        Args:
+            telegram_id: Telegram user ID to check
+
+        Returns:
+            True if user is admin, False otherwise
+        """
+        if not self.admin_telegram_ids:
+            return False
+        admin_ids = [
+            int(id.strip()) for id in self.admin_telegram_ids.split(",") if id.strip()
+        ]
+        return telegram_id in admin_ids
 
     def validate_all_required(self) -> None:
         """

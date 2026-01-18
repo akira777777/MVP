@@ -71,13 +71,12 @@ class ReviewerAgent(BaseAgent):
 
 async def main():
     """Main function to run reviewer agent."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("logs/agent_reviewer.log"),
-            logging.StreamHandler(),
-        ],
+    from utils.logging_config import setup_logging
+
+    setup_logging(
+        name="agents.reviewer",
+        log_file="agent_reviewer.log",
+        log_level="INFO",
     )
 
     agent = ReviewerAgent("reviewer")
@@ -85,7 +84,7 @@ async def main():
     try:
         await agent.run()
     except KeyboardInterrupt:
-        logger.info("Reviewer agent stopping...")
+        agent.logger.info("Reviewer agent stopping...")
         agent.stop()
 
 

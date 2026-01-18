@@ -13,6 +13,7 @@ stripe==11.1.0
 
 # Task Scheduling
 apscheduler==3.10.4
+redis==5.0.1  # For APScheduler Redis backend (horizontal scaling)
 
 # AI Integration
 anthropic==0.39.0
@@ -39,6 +40,8 @@ psutil==6.1.0
 # Testing Framework
 pytest==8.3.3
 pytest-asyncio==0.24.0
+pytest-cov==5.0.0  # Coverage reporting
+pytest-mock==3.14.0  # Enhanced mocking
 
 # E2E Testing
 playwright==1.48.0

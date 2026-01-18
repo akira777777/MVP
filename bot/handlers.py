@@ -5,7 +5,6 @@ Handles all user interactions: booking, payments, GDPR, AI Q&A.
 
 import logging
 from datetime import timedelta
-from typing import Optional
 
 from aiogram import Router
 from aiogram.filters import Command, StateFilter
@@ -28,7 +27,6 @@ from models.client import ClientCreate
 from models.service import ServiceType, get_service
 from models.slot import SlotStatus
 from payments import create_payment_intent, get_payment_intent
-from scheduler import send_reminder
 from utils.ai_qa import get_ai_response
 from utils.datetime_utils import utc_now
 
@@ -464,9 +462,13 @@ async def show_my_bookings(callback: CallbackQuery):
         await callback.answer()
         return
 
+    # Batch fetch slots to avoid N+1 queries
+    slot_ids = [booking.slot_id for booking in bookings[:5]]
+    slots_map = await db.get_slots_by_ids(slot_ids)
+
     bookings_text = "📋 Your Bookings:\n\n"
     for booking in bookings[:5]:  # Show last 5
-        slot = await db.get_slot_by_id(booking.slot_id)
+        slot = slots_map.get(booking.slot_id)
         slot_time = slot.start_time.strftime("%d.%m.%Y %H:%M") if slot else "N/A"
         bookings_text += (
             f"• {booking.service_type} - {slot_time}\n"

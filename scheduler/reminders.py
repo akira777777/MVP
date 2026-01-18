@@ -1,6 +1,8 @@
 """
 Scheduler for appointment reminders using APScheduler.
 Sends reminders 24 hours before appointments.
+
+Supports Redis backend for horizontal scaling (multiple bot instances).
 """
 
 from datetime import datetime
@@ -9,6 +11,14 @@ from typing import Optional
 from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+
+# Redis jobstore is optional - only import if Redis is configured
+try:
+    from apscheduler.jobstores.redis import RedisJobStore
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    RedisJobStore = None
 
 from config import settings
 from db import get_db_client
@@ -19,7 +29,46 @@ logger = setup_logging(
     name=__name__, log_level="INFO", log_file="scheduler.log", log_dir="logs"
 )
 
-scheduler = AsyncIOScheduler()
+# Initialize scheduler with Redis backend if available, otherwise use default
+def _create_scheduler() -> AsyncIOScheduler:
+    """
+    Create scheduler with Redis backend for clustering support.
+    
+    Falls back to default in-memory scheduler if Redis is not configured.
+    """
+    redis_url = getattr(settings, "redis_url", None)
+    
+    if redis_url and REDIS_AVAILABLE and RedisJobStore:
+        try:
+            # Parse Redis URL: redis://host:port/db or redis://:password@host:port/db
+            from urllib.parse import urlparse
+            
+            parsed = urlparse(redis_url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 6379
+            db = int(parsed.path.lstrip("/")) if parsed.path else 0
+            password = parsed.password if parsed.password else None
+            
+            jobstores = {
+                "default": RedisJobStore(
+                    host=host,
+                    port=port,
+                    db=db,
+                    password=password,
+                )
+            }
+            logger.info(f"Scheduler using Redis backend: {host}:{port}/{db}")
+            return AsyncIOScheduler(jobstores=jobstores)
+        except Exception as e:
+            logger.warning(f"Failed to initialize Redis scheduler: {e}. Falling back to in-memory scheduler.")
+            return AsyncIOScheduler()
+    else:
+        if redis_url and not REDIS_AVAILABLE:
+            logger.warning("Redis URL configured but RedisJobStore not available. Install redis package.")
+        logger.info("Scheduler using in-memory backend (single instance mode)")
+        return AsyncIOScheduler()
+
+scheduler = _create_scheduler()
 
 # Bot instance - injected via setup_scheduler
 _bot_instance: Optional[Bot] = None
@@ -98,30 +147,14 @@ async def check_and_send_reminders():
         logger.info(f"Processing {len(bookings)} bookings for reminders")
 
         # Batch fetch slots and clients to reduce N+1 queries
-        slot_ids = {booking.slot_id for booking in bookings}
-        client_ids = {booking.client_id for booking in bookings}
+        slot_ids = list({booking.slot_id for booking in bookings})
+        client_ids = list({booking.client_id for booking in bookings})
 
-        # Fetch all slots in batch
-        slots_map = {}
-        for slot_id in slot_ids:
-            slot = await db.get_slot_by_id(slot_id)
-            if slot:
-                slots_map[slot_id] = slot
+        # Fetch all slots in batch using optimized method
+        slots_map = await db.get_slots_by_ids(slot_ids)
 
-        # Fetch all clients in batch
-        clients_map = {}
-        for client_id in client_ids:
-            try:
-                client_response = (
-                    db.client.table("clients").select("*").eq("id", client_id).execute()
-                )
-                if client_response.data:
-                    from models.client import Client
-
-                    clients_map[client_id] = Client(**client_response.data[0])
-            except Exception as e:
-                logger.warning(f"Failed to fetch client {client_id}: {e}")
-                continue
+        # Fetch all clients in batch using optimized method
+        clients_map = await db.get_clients_by_ids(client_ids)
 
         # Process each booking
         sent_count = 0

@@ -7,6 +7,7 @@ from typing import List, Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from models.booking import Booking
 from models.service import Service, ServiceType, get_all_services
 from models.slot import Slot
 
@@ -127,5 +128,78 @@ def get_back_to_menu_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     builder.row(InlineKeyboardButton(text="🔙 Main Menu", callback_data="main_menu"))
+
+    return builder.as_markup()
+
+
+def get_admin_menu_keyboard() -> InlineKeyboardMarkup:
+    """Get admin menu keyboard."""
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(text="📅 Manage Slots", callback_data="admin_slots")
+    )
+    builder.row(
+        InlineKeyboardButton(text="📋 View Bookings", callback_data="admin_bookings")
+    )
+    builder.row(
+        InlineKeyboardButton(text="➕ Create Slot", callback_data="admin_create_slot")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Main Menu", callback_data="main_menu")
+    )
+
+    return builder.as_markup()
+
+
+def get_slot_management_keyboard(slot_id: str) -> InlineKeyboardMarkup:
+    """Get slot management keyboard."""
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(
+            text="❌ Delete Slot", callback_data=f"admin_delete_slot_{slot_id}"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Back to Admin", callback_data="admin_menu")
+    )
+
+    return builder.as_markup()
+
+
+def get_bookings_list_keyboard(bookings: List, page: int = 0, per_page: int = 5) -> InlineKeyboardMarkup:
+    """Get bookings list keyboard with pagination."""
+    builder = InlineKeyboardBuilder()
+
+    start_idx = page * per_page
+    end_idx = start_idx + per_page
+    page_bookings = bookings[start_idx:end_idx]
+
+    for booking in page_bookings:
+        builder.row(
+            InlineKeyboardButton(
+                text=f"📋 {booking.id[:8]}... - {booking.status.value}",
+                callback_data=f"admin_booking_{booking.id}",
+            )
+        )
+
+    # Pagination
+    if page > 0:
+        builder.row(
+            InlineKeyboardButton(
+                text="⬅️ Previous", callback_data=f"admin_bookings_page_{page - 1}"
+            )
+        )
+    if end_idx < len(bookings):
+        builder.row(
+            InlineKeyboardButton(
+                text="➡️ Next", callback_data=f"admin_bookings_page_{page + 1}"
+            )
+        )
+
+    builder.row(
+        InlineKeyboardButton(text="🔙 Back to Admin", callback_data="admin_menu")
+    )
 
     return builder.as_markup()

@@ -11,6 +11,7 @@ from typing import Any, Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.base_agent import BaseAgent
+from agents.models import TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -19,50 +20,70 @@ class CoderBotAgent(BaseAgent):
     """Bot coder agent for implementing handlers."""
 
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Process coding task."""
+        """
+        Process coding task.
+
+        Args:
+            task: Task dictionary (validated by BaseAgent)
+
+        Returns:
+            Result dictionary with status and implementation details
+        """
         task_type = task.get("type", "implement")
         task_data = task.get("data", {})
 
-        logger.info(f"Bot Coder: Processing {task_type} task")
+        self.logger.info(f"Processing {task_type} task")
 
-        if task_type == "implement":
-            handler_name = task_data.get("handler", "unknown")
+        try:
+            if task_type == "implement":
+                handler_name = task_data.get("handler", "unknown")
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "handler": handler_name,
+                        "files_modified": ["bot/handlers.py"],
+                        "message": f"Handler {handler_name} implemented",
+                    },
+                }
+
+            elif task_type == "review":
+                file_path = task_data.get("file", "")
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "file": file_path,
+                        "review": "Code reviewed",
+                        "issues": [],
+                    },
+                }
+
+            elif task_type == "test":
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "tests_run": 0,
+                        "tests_passed": 0,
+                        "message": "Tests completed",
+                    },
+                }
+
             return {
-                "status": "completed",
-                "handler": handler_name,
-                "files_modified": ["bot/handlers.py"],
-                "result": f"Handler {handler_name} implemented",
+                "status": TaskStatus.COMPLETED.value,
+                "result": {"message": "Task processed"},
             }
-
-        elif task_type == "review":
-            file_path = task_data.get("file", "")
-            return {
-                "status": "completed",
-                "file": file_path,
-                "review": "Code reviewed",
-                "issues": [],
-            }
-
-        elif task_type == "test":
-            return {
-                "status": "completed",
-                "tests_run": 0,
-                "tests_passed": 0,
-                "result": "Tests completed",
-            }
-
-        return {"status": "completed", "result": "Task processed"}
+        except Exception as e:
+            self.logger.error(f"Error processing task: {e}", exc_info=True)
+            raise
 
 
 async def main():
     """Main function to run bot coder agent."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("logs/agent_coder_bot.log"),
-            logging.StreamHandler(),
-        ],
+    from utils.logging_config import setup_logging
+
+    setup_logging(
+        name="agents.coder_bot",
+        log_file="agent_coder_bot.log",
+        log_level="INFO",
     )
 
     agent = CoderBotAgent("coder_bot")
@@ -70,7 +91,7 @@ async def main():
     try:
         await agent.run()
     except KeyboardInterrupt:
-        logger.info("Bot coder agent stopping...")
+        agent.logger.info("Bot coder agent stopping...")
         agent.stop()
 
 

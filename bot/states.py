@@ -25,3 +25,11 @@ class AIQnAStates(StatesGroup):
     """States for AI Q&A flow."""
 
     waiting_for_question = State()
+
+
+class AdminStates(StatesGroup):
+    """States for admin panel flow."""
+
+    managing_slots = State()
+    creating_slot = State()
+    viewing_bookings = State()

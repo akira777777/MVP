@@ -11,6 +11,7 @@ from typing import Any, Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agents.base_agent import BaseAgent
+from agents.models import TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -19,46 +20,66 @@ class DevOpsAgent(BaseAgent):
     """DevOps agent for deployment."""
 
     async def process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Process deployment task."""
+        """
+        Process deployment task.
+
+        Args:
+            task: Task dictionary (validated by BaseAgent)
+
+        Returns:
+            Result dictionary with deployment status
+        """
         task_type = task.get("type", "deploy")
         task_data = task.get("data", {})
 
-        logger.info(f"DevOps: Processing {task_type} task")
+        self.logger.info(f"Processing {task_type} task")
 
-        if task_type == "docker":
+        try:
+            if task_type == "docker":
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "action": "docker_build",
+                        "message": "Docker image built successfully",
+                    },
+                }
+
+            elif task_type == "deploy":
+                environment = task_data.get("environment", "staging")
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "environment": environment,
+                        "message": f"Deployed to {environment}",
+                    },
+                }
+
+            elif task_type == "ci_cd":
+                return {
+                    "status": TaskStatus.COMPLETED.value,
+                    "result": {
+                        "pipeline": "GitHub Actions",
+                        "message": "CI/CD pipeline configured",
+                    },
+                }
+
             return {
-                "status": "completed",
-                "action": "docker_build",
-                "result": "Docker image built successfully",
+                "status": TaskStatus.COMPLETED.value,
+                "result": {"message": "Task processed"},
             }
-
-        elif task_type == "deploy":
-            environment = task_data.get("environment", "staging")
-            return {
-                "status": "completed",
-                "environment": environment,
-                "result": f"Deployed to {environment}",
-            }
-
-        elif task_type == "ci_cd":
-            return {
-                "status": "completed",
-                "pipeline": "GitHub Actions",
-                "result": "CI/CD pipeline configured",
-            }
-
-        return {"status": "completed", "result": "Task processed"}
+        except Exception as e:
+            self.logger.error(f"Error processing task: {e}", exc_info=True)
+            raise
 
 
 async def main():
     """Main function to run DevOps agent."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("logs/agent_devops.log"),
-            logging.StreamHandler(),
-        ],
+    from utils.logging_config import setup_logging
+
+    setup_logging(
+        name="agents.devops",
+        log_file="agent_devops.log",
+        log_level="INFO",
     )
 
     agent = DevOpsAgent("devops")
@@ -66,7 +87,7 @@ async def main():
     try:
         await agent.run()
     except KeyboardInterrupt:
-        logger.info("DevOps agent stopping...")
+        agent.logger.info("DevOps agent stopping...")
         agent.stop()
 
 
