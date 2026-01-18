@@ -271,87 +271,87 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext):
         await start_booking(callback, state)
         return
 
-        # Create booking and mark slot as booked atomically
-        # Note: Supabase doesn't support transactions in the Python client,
-        # so we handle this with careful ordering and error handling
-        from models.booking import BookingCreate
+    # Create booking and mark slot as booked atomically
+    # Note: Supabase doesn't support transactions in the Python client,
+    # so we handle this with careful ordering and error handling
+    from models.booking import BookingCreate
 
-        booking_data = BookingCreate(
-            client_id=client.id,
-            slot_id=slot_id,
-            service_type=service_type,
-            price_czk=price_czk,
-            status=BookingStatus.PENDING,
+    booking_data = BookingCreate(
+        client_id=client.id,
+        slot_id=slot_id,
+        service_type=service_type,
+        price_czk=price_czk,
+        status=BookingStatus.PENDING,
+    )
+
+    try:
+        # Create booking first
+        booking = await db.create_booking(booking_data)
+
+        if not booking or not booking.id:
+            raise ValueError("Failed to create booking: no ID returned")
+
+        # Mark slot as booked immediately after booking creation
+        updated_slot = await db.update_slot_status(slot_id, SlotStatus.BOOKED)
+        if not updated_slot:
+            # Slot update failed - rollback booking by cancelling it
+            logger.error(
+                f"Failed to mark slot {slot_id} as booked "
+                f"after creating booking {booking.id}"
+            )
+            await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
+            await callback.answer(
+                "Failed to reserve slot. Please try again.", show_alert=True
+            )
+            await start_booking(callback, state)
+            return
+
+        # Create Stripe payment intent
+        payment_intent = await create_payment_intent(
+            amount_czk=price_czk,
+            booking_id=booking.id,
+            client_telegram_id=callback.from_user.id,
         )
 
-        try:
-            # Create booking first
-            booking = await db.create_booking(booking_data)
+        # Update booking with payment intent
+        await db.update_booking_payment(
+            booking.id,
+            payment_intent.id,
+            payment_intent.status,
+        )
 
-            if not booking or not booking.id:
-                raise ValueError("Failed to create booking: no ID returned")
-
-            # Mark slot as booked immediately after booking creation
-            updated_slot = await db.update_slot_status(slot_id, SlotStatus.BOOKED)
-            if not updated_slot:
-                # Slot update failed - rollback booking by cancelling it
-                logger.error(
-                    f"Failed to mark slot {slot_id} as booked "
-                    f"after creating booking {booking.id}"
-                )
-                await db.update_booking_status(booking.id, BookingStatus.CANCELLED)
-                await callback.answer(
-                    "Failed to reserve slot. Please try again.", show_alert=True
-                )
-                await start_booking(callback, state)
-                return
-
-            # Create Stripe payment intent
-            payment_intent = await create_payment_intent(
-                amount_czk=price_czk,
-                booking_id=booking.id,
-                client_telegram_id=callback.from_user.id,
-            )
-
-            # Update booking with payment intent
-            await db.update_booking_payment(
+        await callback.message.edit_text(
+            f"✅ Booking created!\n\n"
+            f"Booking ID: {booking.id[:8]}...\n"
+            f"Service: {get_service(ServiceType(service_type)).name}\n"
+            f"Date: {slot.start_time.strftime('%d.%m.%Y at %H:%M')}\n"
+            f"Price: {price_czk} CZK\n\n"
+            f"Please complete the payment:",
+            reply_markup=get_payment_keyboard(
+                f"https://checkout.stripe.com/pay/{payment_intent.id}",
                 booking.id,
-                payment_intent.id,
-                payment_intent.status,
-            )
+            ),
+        )
 
-            await callback.message.edit_text(
-                f"✅ Booking created!\n\n"
-                f"Booking ID: {booking.id[:8]}...\n"
-                f"Service: {get_service(ServiceType(service_type)).name}\n"
-                f"Date: {slot.start_time.strftime('%d.%m.%Y at %H:%M')}\n"
-                f"Price: {price_czk} CZK\n\n"
-                f"Please complete the payment:",
-                reply_markup=get_payment_keyboard(
-                    f"https://checkout.stripe.com/pay/{payment_intent.id}",
-                    booking.id,
-                ),
-            )
+        await state.update_data(booking_id=booking.id)
+        await callback.answer()
 
-            await state.update_data(booking_id=booking.id)
-            await callback.answer()
+    except Exception as e:
+        logger.error(f"Failed to create booking: {e}", exc_info=True)
 
-        except Exception as e:
-            logger.error(f"Failed to create booking: {e}", exc_info=True)
+        # Attempt cleanup: if booking was created but slot update failed,
+        # the booking should already be cancelled in the try block above
+        # Here we handle other exceptions
 
-            # Attempt cleanup: if booking was created but slot update failed,
-            # the booking should already be cancelled in the try block above
-            # Here we handle other exceptions
-
-            await callback.answer(
-                "Failed to create booking. Please try again or contact support.",
-                show_alert=True,
-            )
-            await state.clear()
-            await callback.message.edit_text(
-                "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
-                reply_markup=get_main_menu_keyboard(),
-            )
+        await callback.answer(
+            "Failed to create booking. Please try again or contact support.",
+            show_alert=True,
+        )
+        await state.clear()
+        await callback.message.edit_text(
+            "👋 Welcome to Beauty Salon Bot!\n\nChoose an option:",
+            reply_markup=get_main_menu_keyboard(),
+        )
 
 
 @router.callback_query(lambda c: c.data.startswith("payment_done_"))
