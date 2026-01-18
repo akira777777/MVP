@@ -15,7 +15,6 @@ import json
 import time
 from collections import deque
 from typing import Dict, Optional
-from uuid import uuid4
 
 import stripe
 from aiohttp import web
@@ -32,7 +31,8 @@ logger = setup_logging(
 )
 
 # Constants
-MAX_REQUEST_BODY_SIZE = 1024 * 1024  # 1MB max request body size
+MAX_REQUEST_SIZE = 1024 * 1024  # 1MB max request body size
+MAX_REQUEST_BODY_SIZE = MAX_REQUEST_SIZE  # Alias for consistency
 _MAX_EVENT_HISTORY = 1000  # Keep last 1000 events for metrics
 _EVENT_ID_CLEANUP_INTERVAL = 3600  # 1 hour in seconds
 _EVENT_ID_MAX_AGE = 86400  # 24 hours - max age for event ID cache
@@ -168,21 +168,21 @@ def _validate_webhook_payload(payload: Dict) -> None:
 def _check_and_mark_idempotency(event_id: str) -> bool:
     """
     Check if event has already been processed and mark it if not.
-    
+
     This is an atomic operation to prevent race conditions where
     the same event could be processed multiple times concurrently.
-    
+
     Args:
         event_id: Stripe event ID
-        
+
     Returns:
         True if event was already processed, False if newly marked
     """
     _cleanup_old_event_ids()
-    
+
     if event_id in _processed_event_ids:
         return True
-    
+
     # Mark as processed immediately to prevent concurrent processing
     _processed_event_ids[event_id] = time.time()
     return False
@@ -191,10 +191,10 @@ def _check_and_mark_idempotency(event_id: str) -> bool:
 def _mark_event_processed(event_id: str, event_type: str) -> None:
     """
     Record event in history for metrics and debugging.
-    
+
     Note: Idempotency marking happens in _check_and_mark_idempotency.
     This function only records the event for metrics/history.
-    
+
     Args:
         event_id: Stripe event ID
         event_type: Event type string
@@ -208,7 +208,7 @@ def _mark_event_processed(event_id: str, event_type: str) -> None:
 async def security_headers_middleware(request: Request, handler):
     """
     Add security headers to all responses.
-    
+
     Implements security best practices:
     - Prevents MIME type sniffing
     - Prevents clickjacking
@@ -222,7 +222,9 @@ async def security_headers_middleware(request: Request, handler):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
 
     # Only allow POST for webhook endpoint
     if request.path.startswith("/webhook/"):
@@ -250,14 +252,14 @@ async def stripe_webhook_handler(request: Request) -> Response:
         if content_length:
             try:
                 size = int(content_length)
-                if size > MAX_REQUEST_SIZE:
+                if size > MAX_REQUEST_BODY_SIZE:
                     logger.warning(f"Request body too large: {size} bytes")
                     _health_metrics["validation_failures"] += 1
                     return web.json_response(
                         {
                             "status": "error",
                             "error": "request_too_large",
-                            "message": f"Request body exceeds maximum size of {MAX_REQUEST_SIZE} bytes",
+                            "message": f"Request body exceeds maximum size of {MAX_REQUEST_BODY_SIZE} bytes",
                         },
                         status=413,
                     )
@@ -268,14 +270,14 @@ async def stripe_webhook_handler(request: Request) -> Response:
         raw_body = await request.read()
 
         # Enforce size limit on actual body
-        if len(raw_body) > MAX_REQUEST_SIZE:
+        if len(raw_body) > MAX_REQUEST_BODY_SIZE:
             logger.warning(f"Request body too large: {len(raw_body)} bytes")
             _health_metrics["validation_failures"] += 1
             return web.json_response(
                 {
                     "status": "error",
                     "error": "request_too_large",
-                    "message": f"Request body exceeds maximum size of {MAX_REQUEST_SIZE} bytes",
+                    "message": f"Request body exceeds maximum size of {MAX_REQUEST_BODY_SIZE} bytes",
                 },
                 status=413,
             )
@@ -284,7 +286,11 @@ async def stripe_webhook_handler(request: Request) -> Response:
             logger.warning("Received empty webhook payload")
             _health_metrics["validation_failures"] += 1
             return web.json_response(
-                {"status": "error", "error": "empty_payload", "message": "Empty payload"},
+                {
+                    "status": "error",
+                    "error": "empty_payload",
+                    "message": "Empty payload",
+                },
                 status=400,
             )
 
@@ -301,8 +307,8 @@ async def stripe_webhook_handler(request: Request) -> Response:
 
         logger.info(f"Received Stripe webhook: event_id={event_id}, type={event_type}")
 
-        # Check idempotency
-        if _check_idempotency(event_id):
+        # Check idempotency (atomic check-and-mark)
+        if _check_and_mark_idempotency(event_id):
             _health_metrics["duplicate_events"] += 1
             logger.info(
                 f"Duplicate webhook event detected: event_id={event_id}, "
@@ -440,7 +446,7 @@ async def health_check(request: Request) -> Response:
             },
             "configuration": {
                 "webhook_secret_configured": bool(settings.stripe_webhook_secret),
-                "max_request_size_bytes": MAX_REQUEST_SIZE,
+                "max_request_size_bytes": MAX_REQUEST_BODY_SIZE,
                 "event_history_size": _MAX_EVENT_HISTORY,
                 "event_id_max_age_hours": _EVENT_ID_MAX_AGE / 3600,
             },

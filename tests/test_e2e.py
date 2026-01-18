@@ -117,10 +117,6 @@ async def test_edge_cases():
 async def create_test_slot(db_client, service_type: str, days_ahead: int = 1):
     """Create a test slot for testing."""
     from models.slot import SlotCreate
-<<<<<<< Current (Your changes)
-=======
-    from datetime import datetime, timedelta, timezone
->>>>>>> Incoming (Background Agent changes)
 
     start_time = datetime.now(timezone.utc) + timedelta(days=days_ahead, hours=10)
     end_time = start_time + timedelta(hours=1)
