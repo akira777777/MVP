@@ -3,6 +3,7 @@
 ## Overview
 
 This guide covers deploying the Telegram Beauty Salon Bot in production with:
+
 - Webhook mode for Telegram bot
 - Stripe webhook endpoint
 - Redis-backed APScheduler for horizontal scaling
@@ -58,6 +59,7 @@ docker-compose up -d
 ```
 
 This starts:
+
 - `bot`: Telegram bot service
 - `webhook`: Stripe webhook handler
 - `redis`: Redis for APScheduler cluster
@@ -172,11 +174,12 @@ For local testing of webhooks:
 ngrok http 8000
 ```
 
-4. Use ngrok URL in Stripe webhook configuration:
+1. Use ngrok URL in Stripe webhook configuration:
    - Stripe webhook: `https://your-ngrok-url.ngrok.io/webhook/stripe`
    - Bot webhook: `https://your-ngrok-url.ngrok.io/webhook/telegram`
 
-5. Update `.env`:
+2. Update `.env`:
+
 ```env
 BOT_WEBHOOK_URL=https://your-ngrok-url.ngrok.io/webhook/telegram
 ```
@@ -197,6 +200,7 @@ docker-compose up -d --scale bot=3
 ```
 
 Each instance:
+
 - Shares the same Redis backend
 - Processes Telegram updates independently
 - Coordinates scheduled jobs via Redis
@@ -221,6 +225,7 @@ Each instance:
 ### Logs
 
 Monitor logs for:
+
 - Webhook signature verification failures
 - Rate limit violations
 - Database connection errors
@@ -265,7 +270,7 @@ USING (auth.uid()::text = telegram_id::text);
 CREATE POLICY "Users can view own bookings"
 ON bookings FOR SELECT
 USING (client_id IN (
-    SELECT id FROM clients 
+    SELECT id FROM clients
     WHERE telegram_id::text = auth.uid()::text
 ));
 
