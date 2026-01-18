@@ -1,0 +1,42 @@
+# API Keys and Secrets
+.env
+config.json
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+*.log.*
+
+# Progress files
+*.progress.json
+
+# Data files (uncomment if you don't want to commit CSV files)
+# *.csv
+# data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MCP configuration (if contains API keys)
+.mcp.json
+mcp.json

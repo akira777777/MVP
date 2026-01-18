@@ -61,3 +61,9 @@ agents_session.pid
 tasks/queue_*.json
 tasks/result_*.json
 tasks/stats_*.json
+
+# Business research results (keep template, ignore actual results)
+research_results/*.json
+research_results/*.txt
+research_results/email_templates/
+!research_results/businesses_template.csv

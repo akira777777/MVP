@@ -29,6 +29,8 @@ pydantic-settings==2.5.2
 
 # Utilities
 python-dateutil==2.9.0.post0
+beautifulsoup4==4.12.3  # HTML parsing for Czech registry scraper and Obchodní rejstřík
+pandas==2.2.2  # For data manipulation and CSV processing
 
 # Process Management
 # Used for system monitoring and process management in agents
@@ -43,8 +45,17 @@ pytest-asyncio==0.24.0
 pytest-cov==5.0.0  # Coverage reporting
 pytest-mock==3.14.0  # Enhanced mocking
 
-# E2E Testing
-playwright==1.48.0
+# E2E Testing & Browser Automation
+playwright==1.48.0  # Browser automation for E2E tests and scraping
 
 # Code Quality (optional, for local development and CI/CD)
 # ruff==0.6.9  # Fast Python linter (used in CI/CD workflows)
+
+# Web Scraping & Data Collection
+lxml==5.3.0  # Fast XML/HTML parser
+
+# Browser Automation & Scraping
+selenium==4.27.1  # Browser automation framework
+undetected-chromedriver==3.5.5  # Anti-detection Chrome driver
+scrapy==2.11.2  # Web scraping framework for large-scale data collection
+requests-html==0.10.0  # HTML parsing with JavaScript support

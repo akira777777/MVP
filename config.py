@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Claude AI
     claude_api_key: str
 
+    # Google Maps API (for lead generation)
+    google_maps_api_key: Optional[str] = None
+
     # Bot Settings
     timezone: str = "Europe/Prague"
     reminder_hours_before: int = 24
