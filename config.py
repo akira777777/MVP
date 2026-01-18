@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str
     stripe_publishable_key: str
-    stripe_webhook_secret: Optional[str] = None  # Required in production for webhook verification
+    stripe_webhook_secret: Optional[str] = (
+        None  # Required in production for webhook verification
+    )
 
     # Claude AI
     claude_api_key: str

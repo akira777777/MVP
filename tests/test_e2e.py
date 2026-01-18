@@ -3,12 +3,11 @@ End-to-end tests using Playwright.
 Tests the complete booking flow: book → pay → reminder.
 """
 
-import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import Browser, Page, async_playwright
 
 # Test configuration
 TEST_BOT_USERNAME = os.getenv("TEST_BOT_USERNAME", "test_bot")

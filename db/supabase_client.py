@@ -3,9 +3,11 @@ Supabase database client with CRUD operations.
 Handles all database interactions for clients, slots, and bookings.
 """
 
+from datetime import datetime
 from typing import List, Optional
 
-from supabase import create_client, Client as SupabaseClientType
+from supabase import Client as SupabaseClientType
+from supabase import create_client
 
 from config import settings
 from models.booking import Booking, BookingCreate, BookingStatus
@@ -185,10 +187,7 @@ class SupabaseClient:
         """Get booking by ID."""
         try:
             response = (
-                self.client.table("bookings")
-                .select("*")
-                .eq("id", booking_id)
-                .execute()
+                self.client.table("bookings").select("*").eq("id", booking_id).execute()
             )
 
             if response.data:
@@ -293,9 +292,7 @@ class SupabaseClient:
         except Exception as e:
             raise RuntimeError(f"Failed to mark reminder sent: {e}") from e
 
-    async def get_bookings_for_reminder(
-        self, hours_before: int
-    ) -> List[Booking]:
+    async def get_bookings_for_reminder(self, hours_before: int) -> List[Booking]:
         """Get bookings that need reminders (within specified hours)."""
         try:
             from datetime import timedelta
@@ -303,11 +300,15 @@ class SupabaseClient:
             now = utc_now()
             target_time = now + timedelta(hours=hours_before)
 
-            # Get bookings that are confirmed or paid and don't have reminder sent
+            # Get bookings that are confirmed or paid
+            # and don't have reminder sent
             response = (
                 self.client.table("bookings")
                 .select("*")
-                .in_("status", [BookingStatus.CONFIRMED.value, BookingStatus.PAID.value])
+                .in_(
+                    "status",
+                    [BookingStatus.CONFIRMED.value, BookingStatus.PAID.value],
+                )
                 .eq("reminder_sent", False)
                 .execute()
             )
@@ -332,10 +333,10 @@ class SupabaseClient:
     def _parse_slot(self, item: dict) -> Slot:
         """
         Parse slot data from database response.
-        
+
         Args:
             item: Raw slot data from database
-            
+
         Returns:
             Parsed Slot object
         """
@@ -353,10 +354,10 @@ class SupabaseClient:
     def _parse_booking(self, item: dict) -> Booking:
         """
         Parse booking data from database response.
-        
+
         Args:
             item: Raw booking data from database
-            
+
         Returns:
             Parsed Booking object
         """
